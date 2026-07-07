@@ -1,0 +1,52 @@
+[project]
+name = "streamdock"
+version = "0.1.0"
+description = "Userspace driver + CLI for HOTSPOTEK / MiraBox-Ajazz 'Stream Dock' macropads (off-brand Elgato Stream Deck clones)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Steve Murr" }]
+keywords = ["streamdeck", "stream-dock", "mirabox", "ajazz", "macropad", "hid", "hidapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = [
+    "hidapi>=0.14",
+    "pillow>=10.0",
+    "typer>=0.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/stevemurr/streamdock"
+Repository = "https://github.com/stevemurr/streamdock"
+Issues = "https://github.com/stevemurr/streamdock/issues"
+
+[project.scripts]
+streamdock = "streamdock.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/streamdock"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = ["I"]   # import sorting
