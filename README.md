@@ -38,6 +38,9 @@ do **not** need to export `DYLD_LIBRARY_PATH`.
 | Command | Description |
 |---|---|
 | `run [config]` | **run the control loop** from a config file (see below) |
+| `install-agent` | install+start a macOS LaunchAgent that runs the loop at login |
+| `uninstall-agent` | stop and remove that LaunchAgent |
+| `agent-status` | show whether the LaunchAgent is loaded / running |
 | `info` | device info + firmware + a map of the physical layout |
 | `brightness <0-100>` | set screen brightness |
 | `color <pos> <#rrggbb\|r,g,b>` | solid-color a key by reading-order position |
@@ -89,6 +92,21 @@ Because presses run **arbitrary shell commands**, a key can do anything the host
 can — launch apps, run scripts, call `osascript`/`pmset`, hit HTTP APIs, etc.
 Keep secrets out of the config with `env_file` (values are loaded into the
 environment, so commands reference `$TOKEN` instead of hardcoding it).
+
+### Run at login (macOS)
+
+To make the loop a permanent replacement for the vendor software, install it as
+a LaunchAgent — it starts at login and relaunches itself if it exits:
+
+```bash
+uv run streamdock install-agent            # uses ~/.config/streamdock/config.toml
+uv run streamdock agent-status             # loaded? running? pid?
+uv run streamdock uninstall-agent          # stop + remove
+```
+
+This writes `~/Library/LaunchAgents/com.streamdock.run.plist` (logs to
+`~/.config/streamdock/agent.log`). The agent runs the installed `streamdock`
+executable directly, so it needs no terminal open.
 
 ## Library
 

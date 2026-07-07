@@ -6,8 +6,10 @@ Everything here is a thin wrapper over the same public API you can import:
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from typing import Optional
+from xml.sax.saxutils import escape
 
 import typer
 
@@ -219,6 +221,102 @@ def watch(vid: int = VidOpt, pid: int = PidOpt):
                 typer.echo(f"position {pos:>2} ({tag})  {'DOWN' if down else 'up'}")
         except KeyboardInterrupt:
             typer.echo("\nstopped")
+
+
+# ---- LaunchAgent (macOS: run the control loop at login) --------------------
+AGENT_LABEL = "com.streamdock.run"
+
+_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>{label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{exe}</string><string>run</string><string>{config}</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>{log}</string>
+  <key>StandardErrorPath</key><string>{log}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
+"""
+
+
+def _plist_path() -> str:
+    return os.path.expanduser(f"~/Library/LaunchAgents/{AGENT_LABEL}.plist")
+
+
+def _streamdock_exe() -> str:
+    # the console script installed next to the running interpreter
+    return os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "streamdock")
+
+
+@app.command("install-agent")
+def install_agent(
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="config to run (default: resolved like `run`)"),
+):
+    """Install & start a macOS LaunchAgent that runs the control loop at login
+    (and restarts it if it ever exits). Idempotent — safe to re-run."""
+    if sys.platform != "darwin":
+        raise _err("install-agent is macOS-only (uses launchd)")
+    # a login agent has no cwd context, so default to the absolute user config,
+    # not the cwd-relative example that `run` falls back to.
+    default_cfg = os.path.expanduser("~/.config/streamdock/config.toml")
+    cfg = os.path.abspath(os.path.expanduser(config or default_cfg))
+    if not os.path.exists(cfg):
+        raise _err(f"config not found: {cfg} (create it or pass --config)")
+    exe = _streamdock_exe()
+    if not os.path.exists(exe):
+        raise _err(f"streamdock executable not found at {exe}")
+    log = os.path.expanduser("~/.config/streamdock/agent.log")
+    os.makedirs(os.path.dirname(log), exist_ok=True)
+    path = _plist_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(_PLIST.format(label=AGENT_LABEL, exe=escape(exe),
+                              config=escape(cfg), log=escape(log)))
+    subprocess.run(["launchctl", "unload", path], capture_output=True)   # if already loaded
+    r = subprocess.run(["launchctl", "load", "-w", path], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise _err(f"launchctl load failed: {r.stderr.strip() or r.stdout.strip()}")
+    typer.secho(f"installed + started LaunchAgent {AGENT_LABEL}", fg=typer.colors.GREEN)
+    typer.echo(f"  plist : {path}")
+    typer.echo(f"  runs  : {exe} run {cfg}")
+    typer.echo(f"  log   : {log}")
+
+
+@app.command("uninstall-agent")
+def uninstall_agent():
+    """Stop and remove the control-loop LaunchAgent."""
+    path = _plist_path()
+    if not os.path.exists(path):
+        typer.echo("no LaunchAgent installed")
+        return
+    subprocess.run(["launchctl", "unload", "-w", path], capture_output=True)
+    os.remove(path)
+    typer.echo(f"removed LaunchAgent {AGENT_LABEL}")
+
+
+@app.command("agent-status")
+def agent_status():
+    """Show whether the control-loop LaunchAgent is loaded (PID / last exit)."""
+    r = subprocess.run(["launchctl", "list"], capture_output=True, text=True)
+    line = next((ln for ln in r.stdout.splitlines() if AGENT_LABEL in ln), None)
+    if line:
+        pid = line.split("\t")[0]
+        typer.echo(f"loaded ({'running, pid ' + pid if pid.isdigit() else 'not running'})")
+        typer.echo(f"  {line}")
+        typer.echo(f"  log: {os.path.expanduser('~/.config/streamdock/agent.log')}")
+    else:
+        typer.echo("not loaded  (install with: streamdock install-agent)")
 
 
 def main() -> None:  # convenience entry
