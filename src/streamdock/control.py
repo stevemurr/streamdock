@@ -8,15 +8,17 @@ unplugged. Drive it from a TOML config via ``streamdock run``.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 from ._color import parse_color
 from .device import KEY_PX, PID, VID, DeviceNotFound, StreamDock
+from .render import render_key
 
 try:
     import tomllib as _toml
@@ -28,8 +30,10 @@ except ModuleNotFoundError:      # Python < 3.11
 class KeyConfig:
     position: int
     label: "str | None" = None
+    icon: "str | None" = None
     image: "str | None" = None
     color: "tuple[int, int, int] | None" = None
+    level: "float | None" = None       # 0..1 fill for brightness/meter icons
     command: "str | None" = None
 
 
@@ -55,8 +59,10 @@ def load_config(path: "str | Path") -> Config:
         keys.append(KeyConfig(
             position=int(k["position"]),
             label=k.get("label"),
+            icon=k.get("icon"),
             image=k.get("image"),
             color=parse_color(k["color"]) if k.get("color") else None,
+            level=float(k["level"]) if k.get("level") is not None else None,
             command=k.get("command"),
         ))
     return Config(
@@ -69,31 +75,19 @@ def load_config(path: "str | Path") -> Config:
     )
 
 
-def _font(size: int):
-    for p in ("/System/Library/Fonts/Helvetica.ttc",
-              "/System/Library/Fonts/Supplemental/Arial.ttf",
-              "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
-        try:
-            return ImageFont.truetype(p, size)
-        except Exception:
-            continue
-    return ImageFont.load_default()
+_LEVEL_ICONS = {"brightness", "meter", "contrast"}
 
 
-def label_image(text: str, bg=(25, 25, 30), fg=(255, 255, 255)) -> Image.Image:
-    img = Image.new("RGB", (KEY_PX, KEY_PX), bg)
-    d = ImageDraw.Draw(img)
-    size = 34
-    while size > 10:
-        box = d.textbbox((0, 0), text, font=_font(size))
-        if box[2] - box[0] <= KEY_PX - 8:
-            break
-        size -= 2
-    f = _font(size)
-    box = d.textbbox((0, 0), text, font=f)
-    w, h = box[2] - box[0], box[3] - box[1]
-    d.text(((KEY_PX - w) / 2 - box[0], (KEY_PX - h) / 2 - box[1]), text, font=f, fill=fg)
-    return img
+def _auto_level(key: KeyConfig):
+    """Fill level for meter-style icons: explicit `level`, else a number in the
+    label (e.g. '75%' -> 0.75)."""
+    if key.level is not None:
+        return key.level if key.level <= 1 else key.level / 100
+    if key.icon in _LEVEL_ICONS and key.label:
+        m = re.search(r"\d+", key.label)
+        if m:
+            return min(1.0, int(m.group()) / 100)
+    return None
 
 
 class Runner:
@@ -114,10 +108,9 @@ class Runner:
         if key.image:
             p = key.image if os.path.isabs(key.image) else str(self.cfg.base_dir / key.image)
             return Image.open(p).convert("RGB").resize((KEY_PX, KEY_PX))
-        if key.label:
-            return label_image(key.label, key.color or (25, 25, 30))
-        if key.color:
-            return Image.new("RGB", (KEY_PX, KEY_PX), key.color)
+        if key.label or key.icon or key.color:
+            return render_key(label=key.label, icon=key.icon, color=key.color,
+                              level=_auto_level(key))
         return None
 
     def render_all(self, sd: StreamDock):

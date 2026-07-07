@@ -78,15 +78,38 @@ env_file = "secrets.env"      # optional KEY=VALUE file loaded into the command 
 
 [[keys]]
 position = 0
-label = "Term"                # text drawn on the key (or use `image = "icon.png"`)
-color = "#1e6ea0"             # label background / solid fill
+label = "Term"                # caption
+icon = "monitor"              # a built-in glyph (see `streamdock icons`)
+color = "#1e6ea0"             # a gradient + auto-contrast are derived from this
 command = "open -a Terminal"  # any shell command, run on press
 
 [[keys]]
 position = 1
-image = "icons/lights.png"
+label = "75%"
+icon = "brightness"           # meter fills to the number in the label (0.75)
+color = "#d99a2b"
 command = "curl -s -X POST $HA_URL -H \"Authorization: Bearer $HA_TOKEN\" ..."
+
+[[keys]]
+position = 2
+image = "icons/custom.png"    # or supply your own image; overrides icon/label
+command = "..."
 ```
+
+### Key rendering
+
+Keys are drawn with a subtle gradient (derived from `color`), real typography,
+auto-contrast text, rounded "button" corners, and clean vector icons rendered at
+4× supersampling. Built-in icons (`streamdock icons`):
+
+```
+brightness  bulb  contrast  cycle  dot  droplet  gear  lock  meter
+minus  monitor  moon  play  plus  power  refresh  sun
+```
+
+`brightness`/`meter`/`contrast` show a fill level — set `level = 0..1`, or just
+put a number in the label (`"75%"` → 75% full). Prefer an image? Set `image` to
+any file and it's used as-is.
 
 Because presses run **arbitrary shell commands**, a key can do anything the host
 can — launch apps, run scripts, call `osascript`/`pmset`, hit HTTP APIs, etc.

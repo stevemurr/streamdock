@@ -223,6 +223,39 @@ def watch(vid: int = VidOpt, pid: int = PidOpt):
             typer.echo("\nstopped")
 
 
+@app.command()
+def icons():
+    """List the built-in icon names (use as `icon = ...` in a config)."""
+    from .render import icon_names
+    typer.echo("  ".join(icon_names()))
+
+
+@app.command()
+def icon(
+    position: int = typer.Argument(..., help="reading-order key, 0 = top-left"),
+    name: str = typer.Argument(..., help="icon name (see `streamdock icons`)"),
+    label: Optional[str] = typer.Option(None, "--label", "-l", help="caption under the icon"),
+    color: Optional[str] = typer.Option(None, "--color", "-c", help="'#rrggbb' or 'r,g,b'"),
+    level: Optional[float] = typer.Option(None, "--level", help="0..1 fill for meter icons"),
+    vid: int = VidOpt, pid: int = PidOpt,
+):
+    """Draw a built-in icon (optionally with a caption) on one key."""
+    from .render import ICONS, render_key
+    if name not in ICONS:
+        raise _err(f"unknown icon {name!r}; see `streamdock icons`")
+    rgb = None
+    if color:
+        try:
+            rgb = _parse_color(color)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+    img = render_key(label=label, icon=name, color=rgb, level=level)
+    with _open(vid, pid) as sd:
+        if not sd.set_position_image(position, img):
+            raise _err(f"position {position} has no screen (or is out of range)")
+    typer.echo(f"position {position} <- icon {name}")
+
+
 # ---- LaunchAgent (macOS: run the control loop at login) --------------------
 AGENT_LABEL = "com.streamdock.run"
 

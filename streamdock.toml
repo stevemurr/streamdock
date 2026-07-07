@@ -1,63 +1,58 @@
 # Example control-loop config.  Run it with:  uv run streamdock run streamdock.toml
 #
-# Positions are reading order: 0 = top-left .. 12 = bottom-right.
-# On this unit positions 0-9 are LCD keys; 10-12 are screenless buttons that
-# still trigger their `command` on press.
-#
-# Each [[keys]] entry may set:
-#   label   -> text drawn on the key (LCD keys only)
-#   color   -> "#rrggbb" or "r,g,b" (label background, or solid fill)
-#   image   -> path to an image file (relative to this config), overrides label
+# Positions are reading order, 0 = top-left .. 14 = bottom-right (this unit is a
+# 3x5 grid, all LCD). Each [[keys]] entry may set:
+#   label   -> caption text
+#   icon    -> a built-in glyph (see `streamdock icons`)
+#   color   -> "#rrggbb" or "r,g,b" (a gradient + contrast is derived from it)
+#   image   -> path to an image file (relative to this config); overrides icon/label
+#   level   -> 0..1 fill for the brightness/meter icons (else read from the label)
 #   command -> shell command run when the key is pressed
 
 [settings]
 brightness = 80
-keepalive_seconds = 2.0     # how often to ping the device so it stays awake
+keepalive_seconds = 2.0     # ping interval so the device stays awake (not kiosk)
 clear_on_exit = true
+# env_file = "secrets.env"  # optional KEY=VALUE file loaded into the command env
 
 [[keys]]
 position = 0
 label = "Term"
+icon = "monitor"
 color = "#1e6ea0"
 command = "open -a Terminal"
 
 [[keys]]
 position = 1
 label = "Chrome"
+icon = "dot"
 color = "#c0392b"
 command = "open -a 'Google Chrome'"
 
 [[keys]]
 position = 2
 label = "Finder"
+icon = "gear"
 color = "#2c3e50"
 command = "open ~"
 
 [[keys]]
 position = 3
 label = "Vol+"
+icon = "plus"
 color = "#27632a"
 command = "osascript -e 'set volume output volume ((output volume of (get volume settings)) + 10)'"
 
 [[keys]]
 position = 4
 label = "Vol-"
+icon = "minus"
 color = "#7d6608"
 command = "osascript -e 'set volume output volume ((output volume of (get volume settings)) - 10)'"
 
 [[keys]]
 position = 5
-label = "Mute"
-color = "#4a235a"
-command = "osascript -e 'set volume with output muted'"
-
-[[keys]]
-position = 9
 label = "Lock"
+icon = "lock"
 color = "#922b21"
 command = "pmset displaysleepnow"
-
-# a screenless bottom button — no display, but the press still fires
-[[keys]]
-position = 10
-command = "say ready"
