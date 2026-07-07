@@ -5,12 +5,14 @@ Everything here is a thin wrapper over the same public API you can import:
 """
 from __future__ import annotations
 
+import os
 import sys
 from typing import Optional
 
 import typer
 
 from . import __version__
+from ._color import parse_color as _parse_color
 from .device import PID, VID, DeviceNotFound, StreamDock
 
 app = typer.Typer(
@@ -26,19 +28,10 @@ def _err(msg: str) -> "typer.Exit":
 
 
 def parse_color(s: str) -> tuple[int, int, int]:
-    s = s.strip().lstrip("#")
     try:
-        if "," in s:
-            parts = tuple(int(x) for x in s.split(","))
-            if len(parts) == 3 and all(0 <= v <= 255 for v in parts):
-                return parts  # type: ignore[return-value]
-        elif len(s) == 6:
-            return tuple(int(s[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
-        elif len(s) == 3:
-            return tuple(int(s[i] * 2, 16) for i in range(3))  # type: ignore[return-value]
-    except ValueError:
-        pass
-    raise typer.BadParameter(f"expected '#rrggbb' or 'r,g,b', got {s!r}")
+        return _parse_color(s)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
 
 
 # shared device options
@@ -178,6 +171,37 @@ def rainbow(vid: int = VidOpt, pid: int = PidOpt):
             if sd.set_position_color(pos, palette[ci % len(palette)]):
                 ci += 1
     typer.echo("painted rainbow")
+
+
+def _default_config() -> str:
+    for p in ("streamdock.toml",
+              os.path.expanduser("~/.config/streamdock/config.toml")):
+        if os.path.exists(p):
+            return p
+    return "streamdock.toml"
+
+
+@app.command()
+def run(
+    config: Optional[str] = typer.Argument(
+        None, help="TOML config (default: ./streamdock.toml or ~/.config/streamdock/config.toml)"),
+    vid: int = VidOpt, pid: int = PidOpt,
+):
+    """Run the persistent control loop from a config file.
+
+    Renders your configured buttons, runs each button's command on press, and
+    keeps the device alive so it does not revert to its kiosk image. Ctrl-C to
+    stop. See the example streamdock.toml in the repo for the format.
+    """
+    from .control import Runner, load_config
+    path = config or _default_config()
+    try:
+        cfg = load_config(path)
+    except FileNotFoundError:
+        raise _err(f"config not found: {path}")
+    except Exception as e:  # noqa: BLE001
+        raise _err(f"bad config: {e}")
+    Runner(cfg, vid, pid).run()
 
 
 @app.command()

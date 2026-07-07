@@ -4,7 +4,7 @@ from streamdock.layout import DEFAULT_LAYOUT, HOTSPOTEK_5548_1000, Layout
 
 def test_default_is_the_calibrated_unit():
     assert DEFAULT_LAYOUT is HOTSPOTEK_5548_1000
-    assert DEFAULT_LAYOUT.key_count == 13
+    assert DEFAULT_LAYOUT.key_count == 15
 
 
 def test_reading_order_key_id_roundtrip():
@@ -16,19 +16,16 @@ def test_reading_order_key_id_roundtrip():
     assert lay.position_to_key_id(0) == 1
 
 
-def test_screen_vs_button_split():
+def test_every_key_has_a_screen():
     lay = DEFAULT_LAYOUT
-    lcd = [p for p in range(lay.key_count) if lay.has_screen(p)]
-    buttons = [p for p in range(lay.key_count) if not lay.has_screen(p)]
-    assert lcd == list(range(10))          # first 10 are LCD keys
-    assert buttons == [10, 11, 12]         # bottom row has no screens
+    assert all(lay.has_screen(p) for p in range(lay.key_count))   # all 15 are LCD
 
 
 def test_slot_mapping_values():
     lay = DEFAULT_LAYOUT
-    assert [lay.slot(p) for p in range(5)] == [11, 12, 13, 14, 15]   # top row
-    assert [lay.slot(p) for p in range(5, 10)] == [6, 7, 8, 9, 10]   # 2nd row
-    assert all(lay.slot(p) is None for p in (10, 11, 12))            # buttons
+    assert [lay.slot(p) for p in range(5)] == [11, 12, 13, 14, 15]     # top row
+    assert [lay.slot(p) for p in range(5, 10)] == [6, 7, 8, 9, 10]     # middle row
+    assert [lay.slot(p) for p in range(10, 15)] == [1, 2, 3, 4, 5]     # bottom row
 
 
 def test_screen_slots_are_unique():

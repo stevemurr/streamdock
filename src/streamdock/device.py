@@ -115,6 +115,12 @@ class StreamDock:
         self._write(b"DIS\x00\x00")
         self._write(b"LIG\x00\x00\x00\x00")
 
+    def keep_alive(self):
+        """Send CONNECT. Poll this periodically (~every 1-3s) or the firmware
+        falls back to its onboard kiosk/screensaver image and drops the keys
+        you've drawn. The control loop (streamdock.control) does this for you."""
+        self._write(b"CONNECT")
+
     # ---- commands ----------------------------------------------------------
     def wake(self):
         self._write(b"DIS\x00\x00")

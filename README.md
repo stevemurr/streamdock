@@ -37,6 +37,7 @@ do **not** need to export `DYLD_LIBRARY_PATH`.
 
 | Command | Description |
 |---|---|
+| `run [config]` | **run the control loop** from a config file (see below) |
 | `info` | device info + firmware + a map of the physical layout |
 | `brightness <0-100>` | set screen brightness |
 | `color <pos> <#rrggbb\|r,g,b>` | solid-color a key by reading-order position |
@@ -49,6 +50,45 @@ do **not** need to export `DYLD_LIBRARY_PATH`.
 
 `pos` is a **reading-order position**: `0` = top-left, increasing left-to-right,
 top-to-bottom. All commands accept `--vid` / `--pid` to target other units.
+
+## Control loop (`streamdock run`)
+
+The one-shot commands draw a key and exit — and this firmware **reverts to its
+onboard kiosk/screensaver image the moment nothing is talking to it.** To use
+the deck as a real control surface you run the persistent control loop, which
+renders your buttons, dispatches presses to commands, and sends a periodic
+keep-alive so it never drops back to kiosk mode (it also auto-reconnects if you
+unplug/replug).
+
+```bash
+uv run streamdock run mydeck.toml
+# or drop a config at ~/.config/streamdock/config.toml and just: streamdock run
+```
+
+Config is TOML — each `[[keys]]` entry maps a position to a look and an action:
+
+```toml
+[settings]
+brightness = 80
+keepalive_seconds = 2.0
+env_file = "secrets.env"      # optional KEY=VALUE file loaded into the command env
+
+[[keys]]
+position = 0
+label = "Term"                # text drawn on the key (or use `image = "icon.png"`)
+color = "#1e6ea0"             # label background / solid fill
+command = "open -a Terminal"  # any shell command, run on press
+
+[[keys]]
+position = 1
+image = "icons/lights.png"
+command = "curl -s -X POST $HA_URL -H \"Authorization: Bearer $HA_TOKEN\" ..."
+```
+
+Because presses run **arbitrary shell commands**, a key can do anything the host
+can — launch apps, run scripts, call `osascript`/`pmset`, hit HTTP APIs, etc.
+Keep secrets out of the config with `env_file` (values are loaded into the
+environment, so commands reference `$TOKEN` instead of hardcoding it).
 
 ## Library
 
@@ -64,7 +104,7 @@ with StreamDock() as sd:
 
     sd.set_position_color(0, (0, 200, 0))    # top-left key green
     sd.set_position_image(4, "icon.png")     # image file / PIL.Image / bytes
-    sd.set_position_color(10, (255, 0, 0))   # -> False: bottom row has no screen
+    sd.set_position_color(14, (255, 0, 0))   # bottom-right key red
 
     while True:
         ev = sd.read_position(timeout_ms=500)   # (position, is_down) | None
@@ -78,17 +118,18 @@ Lower-level helpers (`set_slot_color`, `set_slot_image`, `read_key`, `set_mode`,
 
 ## Physical layout (this unit)
 
-**13 keys** — ten LCD keys in two rows of five, plus three screenless buttons:
+**15 keys** in a 3×5 grid, all with LCD screens:
 
 ```
- 0   1   2   3   4      LCD keys   (key_id 1-5,   image slots 11-15)
- 5   6   7   8   9      LCD keys   (key_id 6-10,  image slots 6-10)
-10  11  12              buttons    (key_id 11-13, no display)
+ 0   1   2   3   4      key_id 1-5,   image slots 11-15
+ 5   6   7   8   9      key_id 6-10,  image slots 6-10
+10  11  12  13  14      key_id 11-15, image slots 1-5
 ```
 
-- Bottom-row buttons **report presses but can't show images**.
 - Button `key_id`s are already reading-order (`key_id = position + 1`); image
   *slots* are not, so the driver's `Layout.position_to_slot` handles the remap.
+- The `Layout` type still supports screenless keys (`slot = None`) for other
+  models; this unit just happens to have a screen on every key.
 
 Other models are supported by passing a different `Layout` to `StreamDock(...)`.
 

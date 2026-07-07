@@ -8,8 +8,9 @@ between three coordinate systems:
 * **key_id**   — the 1-based id the device sends on a button event
 * **slot**     — the id used when addressing a key's image (BAT command)
 
-Calibrated for the HOTSPOTEK/MiraBox unit ``0x5548:0x1000``: 13 keys = two rows
-of five LCD keys + three screenless buttons on the bottom row.
+Calibrated for the HOTSPOTEK/MiraBox unit ``0x5548:0x1000``: 15 keys in a 3x5
+grid, all with LCD screens. (``slot`` may still be ``None`` for other models
+that have screenless buttons.)
 """
 from __future__ import annotations
 
@@ -45,13 +46,13 @@ class Layout:
 
 # The unit this project was built and calibrated against.
 HOTSPOTEK_5548_1000 = Layout(
-    name="HOTSPOTEK 0x5548:0x1000 (10 LCD + 3 buttons)",
+    name="HOTSPOTEK 0x5548:0x1000 (15 keys, 3x5)",
     rows=3,
     cols=5,
     position_to_slot=(
         11, 12, 13, 14, 15,   # top row    (key_id 1..5)
-        6,  7,  8,  9,  10,    # second row (key_id 6..10)
-        None, None, None,      # bottom row (plain buttons, no screen)
+        6,  7,  8,  9,  10,    # middle row (key_id 6..10)
+        1,  2,  3,  4,  5,     # bottom row (key_id 11..15)
     ),
 )
 

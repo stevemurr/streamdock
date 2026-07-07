@@ -17,3 +17,7 @@ venv/
 
 # OS
 .DS_Store
+
+# secrets (never commit)
+secrets.env
+*.secret
