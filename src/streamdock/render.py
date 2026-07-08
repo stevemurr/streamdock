@@ -212,7 +212,8 @@ def icon_names():
 # ---------------------------------------------------------------- label -------
 def _draw_label(d, text, fg, has_icon):
     if has_icon:
-        size = int(S * 0.16)
+        # a small caption low in the key; the icon sits near the center above it
+        size = int(S * 0.145)
         f = _font(size)
         b = d.textbbox((0, 0), text, font=f)
         while b[2] - b[0] > S * 0.86 and size > 10:
@@ -220,9 +221,7 @@ def _draw_label(d, text, fg, has_icon):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        # center the caption in the lower band (baseline ~0.78) so icon+label
-        # read as one centered group instead of hugging the bottom edge
-        d.text((S / 2 - w / 2 - b[0], S * 0.78 - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((S / 2 - w / 2 - b[0], S * 0.86 - h / 2 - b[1]), text, font=f, fill=fg)
     else:
         size = int(S * 0.30)
         f = _font(size)
@@ -256,8 +255,8 @@ def render_key(label=None, icon=None, color=None, fg=None, level=None):
 
     lw = max(2, int(S * 0.052))
     if icon and icon in ICONS:
-        cy = S * 0.38 if label else S * 0.5
-        r = S * (0.215 if label else 0.27)
+        cy = S * 0.45 if label else S * 0.5
+        r = S * (0.235 if label else 0.27)
         ICONS[icon](d, S / 2, cy, r, fg, lw, level)
     if label:
         _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS))
