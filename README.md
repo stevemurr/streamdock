@@ -116,10 +116,26 @@ can — launch apps, run scripts, call `osascript`/`pmset`, hit HTTP APIs, etc.
 Keep secrets out of the config with `env_file` (values are loaded into the
 environment, so commands reference `$TOKEN` instead of hardcoding it).
 
-### Run at login (macOS)
+### Sleep key
+
+A key with `action = "sleep"` puts the deck's **displays to sleep** (panel off).
+Pressing **any** key afterwards wakes it and redraws everything (that first press
+only wakes — it doesn't fire its own command). If the sleep key also has a
+`command`, it runs on the way down (e.g. dim your room lights too).
+
+```toml
+[[keys]]
+position = 9
+label = "Sleep"
+icon = "moon"
+action = "sleep"
+```
+
+### Run at login + menu bar (macOS)
 
 To make the loop a permanent replacement for the vendor software, install it as
-a LaunchAgent — it starts at login and relaunches itself if it exits:
+a LaunchAgent — it starts at login, relaunches itself if it exits, and shows a
+**🎛 menu bar icon** so you can see the daemon is running:
 
 ```bash
 uv run streamdock install-agent            # uses ~/.config/streamdock/config.toml
@@ -127,7 +143,9 @@ uv run streamdock agent-status             # loaded? running? pid?
 uv run streamdock uninstall-agent          # stop + remove
 ```
 
-This writes `~/Library/LaunchAgents/com.streamdock.run.plist` (logs to
+Pass `--no-menubar` to `install-agent` to run headless, or `run --menubar` to
+show the icon when running by hand. This writes
+`~/Library/LaunchAgents/com.streamdock.run.plist` (logs to
 `~/.config/streamdock/agent.log`). The agent runs the installed `streamdock`
 executable directly, so it needs no terminal open.
 

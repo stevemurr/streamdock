@@ -210,18 +210,18 @@ def icon_names():
 
 
 # ---------------------------------------------------------------- label -------
-def _draw_label(d, text, fg, has_icon):
+def _draw_label(d, text, fg, has_icon, oy=0.0):
     if has_icon:
-        # a small caption low in the key; the icon sits near the center above it
+        # small caption, kept inside the safe area (physical keys crop the edges)
         size = int(S * 0.145)
         f = _font(size)
         b = d.textbbox((0, 0), text, font=f)
-        while b[2] - b[0] > S * 0.86 and size > 10:
+        while b[2] - b[0] > S * 0.78 and size > 10:
             size -= 4
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 - w / 2 - b[0], S * 0.86 - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((S / 2 - w / 2 - b[0], S * 0.76 + oy - h / 2 - b[1]), text, font=f, fill=fg)
     else:
         size = int(S * 0.30)
         f = _font(size)
@@ -231,17 +231,18 @@ def _draw_label(d, text, fg, has_icon):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 - w / 2 - b[0], S / 2 - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((S / 2 - w / 2 - b[0], S / 2 + oy - h / 2 - b[1]), text, font=f, fill=fg)
 
 
-def render_key(label=None, icon=None, color=None, fg=None, level=None):
+def render_key(label=None, icon=None, color=None, fg=None, level=None, nudge_y=0.0):
     """Render a professional-looking key face.
 
-    label  : text (centered, or a caption under the icon)
-    icon   : icon name (see icon_names())
-    color  : base background color (r,g,b); a subtle gradient is derived from it
-    fg     : foreground; auto-picked for contrast if omitted
-    level  : 0..1 fill for the 'brightness'/'meter'/'contrast' icons
+    label   : text (centered, or a caption under the icon)
+    icon    : icon name (see icon_names())
+    color   : base background color (r,g,b); a subtle gradient is derived from it
+    fg      : foreground; auto-picked for contrast if omitted
+    level   : 0..1 fill for the 'brightness'/'meter'/'contrast' icons
+    nudge_y : shift icon+label down by this fraction of the key (per-key crop fix)
     """
     base = tuple(color) if color else DEFAULT_BG
     fg = tuple(fg) if fg else _auto_fg(base)
@@ -253,13 +254,14 @@ def render_key(label=None, icon=None, color=None, fg=None, level=None):
     d.rounded_rectangle([S * 0.05, S * 0.05, S * 0.95, S * 0.95],
                         radius=S * 0.12, outline=sheen, width=max(1, int(S * 0.006)))
 
-    lw = max(2, int(S * 0.052))
+    oy = nudge_y * S
+    lw = max(2, int(S * 0.048))
     if icon and icon in ICONS:
-        cy = S * 0.45 if label else S * 0.5
-        r = S * (0.235 if label else 0.27)
+        cy = (S * 0.39 if label else S * 0.5) + oy
+        r = S * (0.15 if label else 0.22)
         ICONS[icon](d, S / 2, cy, r, fg, lw, level)
     if label:
-        _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS))
+        _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS), oy=oy)
 
     img = img.resize((KEY_PX, KEY_PX), Image.LANCZOS)
     out = Image.new("RGB", (KEY_PX, KEY_PX), (0, 0, 0))

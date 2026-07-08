@@ -22,6 +22,7 @@ dependencies = [
     "pillow>=10.0",
     "typer>=0.12",
     "tomli>=2.0; python_version < '3.11'",
+    "rumps>=0.4.0; sys_platform == 'darwin'",   # menu bar status icon (macOS only)
 ]
 
 [project.urls]

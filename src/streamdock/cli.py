@@ -187,6 +187,7 @@ def _default_config() -> str:
 def run(
     config: Optional[str] = typer.Argument(
         None, help="TOML config (default: ./streamdock.toml or ~/.config/streamdock/config.toml)"),
+    menubar: bool = typer.Option(False, "--menubar", help="show a macOS menu bar status icon"),
     vid: int = VidOpt, pid: int = PidOpt,
 ):
     """Run the persistent control loop from a config file.
@@ -203,7 +204,12 @@ def run(
         raise _err(f"config not found: {path}")
     except Exception as e:  # noqa: BLE001
         raise _err(f"bad config: {e}")
-    Runner(cfg, vid, pid).run()
+    runner = Runner(cfg, vid, pid)
+    if menubar:
+        from .menubar import run_with_menubar
+        run_with_menubar(runner)
+    else:
+        runner.run()
 
 
 @app.command()
@@ -266,7 +272,7 @@ _PLIST = """<?xml version="1.0" encoding="UTF-8"?>
   <key>Label</key><string>{label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>{exe}</string><string>run</string><string>{config}</string>
+{args}
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -295,6 +301,8 @@ def _streamdock_exe() -> str:
 def install_agent(
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="config to run (default: resolved like `run`)"),
+    menubar: bool = typer.Option(True, "--menubar/--no-menubar",
+                                 help="show a menu bar status icon while running"),
 ):
     """Install & start a macOS LaunchAgent that runs the control loop at login
     (and restarts it if it ever exits). Idempotent — safe to re-run."""
@@ -313,16 +321,17 @@ def install_agent(
     os.makedirs(os.path.dirname(log), exist_ok=True)
     path = _plist_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    argv = [exe, "run", cfg] + (["--menubar"] if menubar else [])
+    args = "\n".join(f"    <string>{escape(a)}</string>" for a in argv)
     with open(path, "w") as f:
-        f.write(_PLIST.format(label=AGENT_LABEL, exe=escape(exe),
-                              config=escape(cfg), log=escape(log)))
+        f.write(_PLIST.format(label=AGENT_LABEL, args=args, log=escape(log)))
     subprocess.run(["launchctl", "unload", path], capture_output=True)   # if already loaded
     r = subprocess.run(["launchctl", "load", "-w", path], capture_output=True, text=True)
     if r.returncode != 0:
         raise _err(f"launchctl load failed: {r.stderr.strip() or r.stdout.strip()}")
     typer.secho(f"installed + started LaunchAgent {AGENT_LABEL}", fg=typer.colors.GREEN)
     typer.echo(f"  plist : {path}")
-    typer.echo(f"  runs  : {exe} run {cfg}")
+    typer.echo(f"  runs  : {' '.join(argv)}")
     typer.echo(f"  log   : {log}")
 
 

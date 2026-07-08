@@ -56,3 +56,11 @@ label = "Lock"
 icon = "lock"
 color = "#922b21"
 command = "pmset displaysleepnow"
+
+# Sleeps the deck's own displays; any key press wakes it back up.
+[[keys]]
+position = 6
+label = "Sleep"
+icon = "moon"
+color = "#241f47"
+action = "sleep"

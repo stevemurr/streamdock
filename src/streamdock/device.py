@@ -47,7 +47,7 @@ VID = 0x5548
 PID = 0x1000
 USAGE_PAGE = 0xFFA0          # vendor page => the data interface (interface 0)
 PACKET = 1024                # protocol v3 uses 1024-byte reports (v1 used 512)
-KEY_PX = 96                  # per-key image is 96x96
+KEY_PX = 70                  # per-key image size (device native res; keys crop bigger)
 ROTATE = 0                   # image rotation in degrees
 
 CRT = b"CRT\x00\x00"         # 43 52 54 00 00
@@ -123,7 +123,14 @@ class StreamDock:
 
     # ---- commands ----------------------------------------------------------
     def wake(self):
+        """Turn the displays back on (after sleep_display())."""
         self._write(b"DIS\x00\x00")
+
+    def sleep_display(self):
+        """Put the key displays to sleep (panel off). Reverse with wake().
+        This is the device's real display-sleep (mirajazz 'HAN'); brightness 0
+        only dims, it does not turn the panel off."""
+        self._write(b"HAN\x00\x00")
 
     def set_brightness(self, percent: int):
         percent = max(0, min(100, int(percent)))
