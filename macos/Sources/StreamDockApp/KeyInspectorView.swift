@@ -40,8 +40,7 @@ private struct InspectorForm: View {
                         Text("None").tag(String?.none)
                         ForEach(icons, id: \.self) { Text($0.capitalized).tag(Optional($0)) }
                     }
-                    TextField("Color", text: $key.color)
-                        .font(.system(.body, design: .monospaced))
+                    ColorRow(colorHex: $key.color)
                 }
 
                 Section("On Press") {
@@ -108,6 +107,78 @@ private struct InspectorForm: View {
         case .launchApplication, .shellCommand, .inlineScript, .scriptFile: true
         default: false
         }
+    }
+}
+
+/// A color picker paired with a monospaced hex field, both backed by the
+/// key's `#rrggbb` color string.
+private struct ColorRow: View {
+    @Binding var colorHex: String
+    @State private var draft = ""
+    @FocusState private var hexFieldFocused: Bool
+
+    var body: some View {
+        LabeledContent("Color") {
+            HStack(spacing: 8) {
+                ColorPicker("Color", selection: pickerColor, supportsOpacity: false)
+                    .labelsHidden()
+                TextField("#rrggbb", text: $draft)
+                    .font(.system(.body, design: .monospaced))
+                    .multilineTextAlignment(.trailing)
+                    .focused($hexFieldFocused)
+                    .onSubmit(commitDraft)
+                    .frame(maxWidth: 120)
+            }
+        }
+        .onAppear { draft = colorHex }
+        .onChange(of: colorHex) { _, newValue in draft = newValue }
+        .onChange(of: hexFieldFocused) { _, focused in
+            if !focused { commitDraft() }
+        }
+    }
+
+    /// SwiftUI `Color` view of the stored hex string; writes back as
+    /// canonical lowercase `#rrggbb`.
+    private var pickerColor: Binding<Color> {
+        Binding(
+            get: {
+                MainActor.assumeIsolated {
+                    guard let components = ColorHex.parse(colorHex) else {
+                        return Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1)
+                    }
+                    return Color(
+                        .sRGB,
+                        red: components.red,
+                        green: components.green,
+                        blue: components.blue,
+                        opacity: 1
+                    )
+                }
+            },
+            set: { newColor in
+                MainActor.assumeIsolated {
+                    guard let converted = NSColor(newColor).usingColorSpace(.sRGB) else { return }
+                    colorHex = ColorHex.format(
+                        red: converted.redComponent,
+                        green: converted.greenComponent,
+                        blue: converted.blueComponent
+                    )
+                }
+            }
+        )
+    }
+
+    /// Applies the typed hex value if valid (normalizing it); otherwise
+    /// restores the field to the stored value without touching the key.
+    private func commitDraft() {
+        if let components = ColorHex.parse(draft) {
+            colorHex = ColorHex.format(
+                red: components.red,
+                green: components.green,
+                blue: components.blue
+            )
+        }
+        draft = colorHex
     }
 }
 
