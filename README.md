@@ -38,6 +38,7 @@ do **not** need to export `DYLD_LIBRARY_PATH`.
 | Command | Description |
 |---|---|
 | `run [config]` | **run the control loop** from a config file (see below) |
+| `ui [config]` | **configure the deck in a local web UI** (`--port 8383`, `--no-open`) |
 | `install-agent` | install+start a macOS LaunchAgent that runs the loop at login |
 | `uninstall-agent` | stop and remove that LaunchAgent |
 | `agent-status` | show whether the LaunchAgent is loaded / running |
@@ -64,37 +65,71 @@ keep-alive so it never drops back to kiosk mode (it also auto-reconnects if you
 unplug/replug).
 
 ```bash
-uv run streamdock run mydeck.toml
-# or drop a config at ~/.config/streamdock/config.toml and just: streamdock run
+uv run streamdock run mydeck.yaml
+# or drop a config at ~/.config/streamdock/config.yaml and just: streamdock run
 ```
 
-Config is TOML — each `[[keys]]` entry maps a position to a look and an action:
+Config is YAML — keys live on named **pages**, and each key maps a position to
+a look and an action:
 
-```toml
-[settings]
-brightness = 80
-keepalive_seconds = 2.0
-env_file = "secrets.env"      # optional KEY=VALUE file loaded into the command env
+```yaml
+settings:
+  brightness: 80
+  keepalive_seconds: 2.0
+  # env_file: secrets.env     # optional KEY=VALUE file loaded into the command env
 
-[[keys]]
-position = 0
-label = "Term"                # caption
-icon = "monitor"              # a built-in glyph (see `streamdock icons`)
-color = "#1e6ea0"             # a gradient + auto-contrast are derived from this
-command = "open -a Terminal"  # any shell command, run on press
+pages:
+  - name: main
+    keys:
+      # app: opens a macOS app on press (sugar for: open -a "Terminal")
+      - {position: 0, label: Term, icon: monitor, color: '#1e6ea0', app: Terminal}
+      # command: any raw shell command
+      - {position: 1, label: Build, icon: play, command: "make -C ~/proj build"}
+      # meter icons fill to `level` (or to the number in the label: "75%" -> 0.75)
+      - {position: 2, label: "75%", icon: brightness, color: '#d99a2b',
+         command: "curl -s -X POST $HA_URL -H \"Authorization: Bearer $HA_TOKEN\" ..."}
+      # or supply your own image; overrides icon/label
+      - {position: 3, image: icons/custom.png, command: "..."}
+      # action: switch pages — "page:next" / "page:prev" (wrap) or "page:<name>"
+      - {position: 14, label: Media, icon: cycle, action: 'page:next'}
 
-[[keys]]
-position = 1
-label = "75%"
-icon = "brightness"           # meter fills to the number in the label (0.75)
-color = "#d99a2b"
-command = "curl -s -X POST $HA_URL -H \"Authorization: Bearer $HA_TOKEN\" ..."
-
-[[keys]]
-position = 2
-image = "icons/custom.png"    # or supply your own image; overrides icon/label
-command = "..."
+  - name: media
+    keys:
+      - {position: 0, label: Play, icon: play,
+         command: "osascript -e 'tell application \"Music\" to playpause'"}
+      - {position: 14, label: Main, icon: cycle, action: 'page:main'}
 ```
+
+Per key: `label`, `icon`, `color`, `image`, `level` control the look; `app`
+(open a macOS app), `command` (raw shell), and `action` (`sleep`,
+`page:next`/`page:prev`/`page:<name>`) control what a press does. Pressing a
+page key re-renders the whole deck with that page's keys.
+
+The loop also **hot-reloads the config**: edit and save the file (or press Save
+in `streamdock ui`) and the deck re-renders within ~2s — no restart. A
+half-written or invalid file is ignored and the previous config stays active.
+
+**Legacy TOML configs keep working**: a flat `[[keys]]` TOML file (see
+`streamdock.toml` in the repo) loads as a single page named `main`. YAML is the
+canonical format going forward (`streamdock run` prefers `streamdock.yaml`,
+then `streamdock.toml`, then the same names under `~/.config/streamdock/`).
+
+## Web UI (`streamdock ui`)
+
+```bash
+uv run streamdock ui                 # opens http://127.0.0.1:8383/
+uv run streamdock ui --port 9000 --no-open
+```
+
+A local, dependency-free web app (stdlib server, bound to 127.0.0.1) for
+editing the config visually: page tabs (add/rename/reorder/delete), a 3×5 grid
+that mirrors the device with live server-rendered previews of every key face,
+and a key editor — label, icon, color, level, and an on-press action: open a
+macOS app (with the installed-apps list suggested as you type), run a shell
+command, switch page, or sleep the deck. **Save** validates and writes the YAML
+atomically, so a running `streamdock run` picks it up live; **Reload from
+disk** re-reads outside edits. Editing a legacy `.toml` config saves next to it
+as `.yaml` (which then takes precedence).
 
 ### Key rendering
 
@@ -123,12 +158,8 @@ Pressing **any** key afterwards wakes it and redraws everything (that first pres
 only wakes — it doesn't fire its own command). If the sleep key also has a
 `command`, it runs on the way down (e.g. dim your room lights too).
 
-```toml
-[[keys]]
-position = 9
-label = "Sleep"
-icon = "moon"
-action = "sleep"
+```yaml
+- {position: 9, label: Sleep, icon: moon, action: sleep}
 ```
 
 ### Run at login + menu bar (macOS)
@@ -138,7 +169,7 @@ a LaunchAgent — it starts at login, relaunches itself if it exits, and shows a
 **🎛 menu bar icon** so you can see the daemon is running:
 
 ```bash
-uv run streamdock install-agent            # uses ~/.config/streamdock/config.toml
+uv run streamdock install-agent            # uses ~/.config/streamdock/config.yaml (or .toml)
 uv run streamdock agent-status             # loaded? running? pid?
 uv run streamdock uninstall-agent          # stop + remove
 ```

@@ -23,6 +23,7 @@ dependencies = [
     "typer>=0.12",
     "tomli>=2.0; python_version < '3.11'",
     "rumps>=0.4.0; sys_platform == 'darwin'",   # menu bar status icon (macOS only)
+    "pyyaml>=6.0.3",
 ]
 
 [project.urls]

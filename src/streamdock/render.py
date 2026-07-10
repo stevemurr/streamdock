@@ -62,10 +62,11 @@ def _vgrad(w, h, top, bot):
     return strip.resize((w, h))
 
 
-def _rounded_mask(size, radius):
+def _rounded_mask(size, radius, offset=(0, 0)):
     m = Image.new("L", size, 0)
-    ImageDraw.Draw(m).rounded_rectangle([0, 0, size[0] - 1, size[1] - 1],
-                                        radius=radius, fill=255)
+    ox, oy = offset
+    ImageDraw.Draw(m).rounded_rectangle(
+        [ox, oy, size[0] - 1 + ox, size[1] - 1 + oy], radius=radius, fill=255)
     return m
 
 
@@ -209,8 +210,31 @@ def icon_names():
     return sorted(ICONS)
 
 
+def _draw_icon(img, name, cx, cy, r, fg, lw, level):
+    """Draw an icon with its ink bounding box centered on (cx, cy).
+
+    The glyph functions are authored with assorted internal offsets (e.g. the
+    bulb's glass sits above its anchor, the lock's body below), so drawing them
+    raw leaves each icon optically off-center by a different amount. Rendering
+    to a scratch layer, measuring the ink extents, and re-anchoring by the
+    bbox center makes every icon sit centered on the same (cx, cy) — the key to
+    icon+caption groups that line up across keys.
+    """
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ICONS[name](ImageDraw.Draw(layer, "RGBA"), cx, cy, r, fg, lw, level)
+    bb = layer.getbbox()
+    if bb:
+        dx = int(round(cx - (bb[0] + bb[2]) / 2))
+        dy = int(round(cy - (bb[1] + bb[3]) / 2))
+        if dx or dy:
+            centered = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            centered.paste(layer, (dx, dy))
+            layer = centered
+    img.paste(layer, (0, 0), layer)
+
+
 # ---------------------------------------------------------------- label -------
-def _draw_label(d, text, fg, has_icon, oy=0.0):
+def _draw_label(d, text, fg, has_icon, ox=0.0, oy=0.0):
     if has_icon:
         # small caption, kept inside the safe area (physical keys crop the edges)
         size = int(S * 0.145)
@@ -221,7 +245,7 @@ def _draw_label(d, text, fg, has_icon, oy=0.0):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 - w / 2 - b[0], S * 0.76 + oy - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((S / 2 + ox - w / 2 - b[0], S * 0.76 + oy - h / 2 - b[1]), text, font=f, fill=fg)
     else:
         size = int(S * 0.30)
         f = _font(size)
@@ -231,10 +255,11 @@ def _draw_label(d, text, fg, has_icon, oy=0.0):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 - w / 2 - b[0], S / 2 + oy - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((S / 2 + ox - w / 2 - b[0], S / 2 + oy - h / 2 - b[1]), text, font=f, fill=fg)
 
 
-def render_key(label=None, icon=None, color=None, fg=None, level=None, nudge_y=0.0):
+def render_key(label=None, icon=None, color=None, fg=None, level=None,
+               nudge_y=0.0, nudge_x=0.0):
     """Render a professional-looking key face.
 
     label   : text (centered, or a caption under the icon)
@@ -242,28 +267,38 @@ def render_key(label=None, icon=None, color=None, fg=None, level=None, nudge_y=0
     color   : base background color (r,g,b); a subtle gradient is derived from it
     fg      : foreground; auto-picked for contrast if omitted
     level   : 0..1 fill for the 'brightness'/'meter'/'contrast' icons
-    nudge_y : shift icon+label down by this fraction of the key (per-key crop fix)
+    nudge_x : shift the whole face right by this fraction of the key width
+    nudge_y : shift the whole face down by this fraction of the key height
+
+    ``nudge_x`` / ``nudge_y`` calibrate for a physical panel that crops an edge:
+    the inset border, icon, caption and corner-rounding all shift together, so
+    the content stays registered with its frame (the background gradient fills
+    the whole face and needs no shift). Leave at 0 when the render size matches
+    the panel's native resolution.
     """
     base = tuple(color) if color else DEFAULT_BG
     fg = tuple(fg) if fg else _auto_fg(base)
     img = _vgrad(S, S, _shade(base, 1.30), _shade(base, 0.66)).convert("RGB")
     d = ImageDraw.Draw(img, "RGBA")
 
-    # faint inset border for depth
+    ox, oy = nudge_x * S, nudge_y * S
+
+    # faint inset border for depth (shifts with the content so the whole face
+    # stays registered under the panel's crop)
     sheen = (255, 255, 255, 30) if _luma(base) <= 140 else (0, 0, 0, 30)
-    d.rounded_rectangle([S * 0.05, S * 0.05, S * 0.95, S * 0.95],
+    d.rounded_rectangle([S * 0.05 + ox, S * 0.05 + oy, S * 0.95 + ox, S * 0.95 + oy],
                         radius=S * 0.12, outline=sheen, width=max(1, int(S * 0.006)))
 
-    oy = nudge_y * S
     lw = max(2, int(S * 0.048))
     if icon and icon in ICONS:
         cy = (S * 0.39 if label else S * 0.5) + oy
         r = S * (0.15 if label else 0.22)
-        ICONS[icon](d, S / 2, cy, r, fg, lw, level)
+        _draw_icon(img, icon, S / 2 + ox, cy, r, fg, lw, level)
     if label:
-        _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS), oy=oy)
+        _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS), ox=ox, oy=oy)
 
     img = img.resize((KEY_PX, KEY_PX), Image.LANCZOS)
     out = Image.new("RGB", (KEY_PX, KEY_PX), (0, 0, 0))
-    out.paste(img, (0, 0), _rounded_mask((KEY_PX, KEY_PX), int(KEY_PX * 0.16)))
+    off = (int(round(nudge_x * KEY_PX)), int(round(nudge_y * KEY_PX)))
+    out.paste(img, (0, 0), _rounded_mask((KEY_PX, KEY_PX), int(KEY_PX * 0.16), off))
     return out

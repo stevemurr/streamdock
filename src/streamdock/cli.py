@@ -176,25 +176,29 @@ def rainbow(vid: int = VidOpt, pid: int = PidOpt):
 
 
 def _default_config() -> str:
-    for p in ("streamdock.toml",
+    for p in ("streamdock.yaml",
+              "streamdock.toml",
+              os.path.expanduser("~/.config/streamdock/config.yaml"),
               os.path.expanduser("~/.config/streamdock/config.toml")):
         if os.path.exists(p):
             return p
-    return "streamdock.toml"
+    return "streamdock.yaml"
 
 
 @app.command()
 def run(
     config: Optional[str] = typer.Argument(
-        None, help="TOML config (default: ./streamdock.toml or ~/.config/streamdock/config.toml)"),
+        None, help="YAML/TOML config (default: ./streamdock.yaml, ./streamdock.toml, "
+                   "or the same names under ~/.config/streamdock/)"),
     menubar: bool = typer.Option(False, "--menubar", help="show a macOS menu bar status icon"),
     vid: int = VidOpt, pid: int = PidOpt,
 ):
     """Run the persistent control loop from a config file.
 
     Renders your configured buttons, runs each button's command on press, and
-    keeps the device alive so it does not revert to its kiosk image. Ctrl-C to
-    stop. See the example streamdock.toml in the repo for the format.
+    keeps the device alive so it does not revert to its kiosk image. Edits to
+    the config file (e.g. saving from `streamdock ui`) hot-reload live. Ctrl-C
+    to stop. See the example streamdock.yaml in the repo for the format.
     """
     from .control import Runner, load_config
     path = config or _default_config()
@@ -204,12 +208,35 @@ def run(
         raise _err(f"config not found: {path}")
     except Exception as e:  # noqa: BLE001
         raise _err(f"bad config: {e}")
-    runner = Runner(cfg, vid, pid)
+    runner = Runner(cfg, vid, pid, config_path=path)
     if menubar:
         from .menubar import run_with_menubar
         run_with_menubar(runner)
     else:
         runner.run()
+
+
+@app.command()
+def ui(
+    config: Optional[str] = typer.Argument(
+        None, help="config file to edit (default: resolved like `run`; created on first save)"),
+    port: int = typer.Option(8383, "--port", help="port to listen on (localhost only)"),
+    no_open: bool = typer.Option(False, "--no-open", help="don't open the browser"),
+):
+    """Configure the deck's buttons in a local web UI.
+
+    Assign macOS apps, shell commands, page switches and looks to keys across
+    multiple pages, then Save — the file is written as YAML, and a running
+    `streamdock run` on the same file picks the change up live. A legacy TOML
+    config is loaded for editing but saved next to it as .yaml (the new
+    canonical format).
+    """
+    from .webui import serve
+    path = config or _default_config()
+    try:
+        serve(path, port=port, open_browser=not no_open)
+    except OSError as e:
+        raise _err(f"could not start server on 127.0.0.1:{port}: {e}")
 
 
 @app.command()
@@ -310,7 +337,9 @@ def install_agent(
         raise _err("install-agent is macOS-only (uses launchd)")
     # a login agent has no cwd context, so default to the absolute user config,
     # not the cwd-relative example that `run` falls back to.
-    default_cfg = os.path.expanduser("~/.config/streamdock/config.toml")
+    default_cfg = os.path.expanduser("~/.config/streamdock/config.yaml")
+    if config is None and not os.path.exists(default_cfg):
+        default_cfg = os.path.expanduser("~/.config/streamdock/config.toml")
     cfg = os.path.abspath(os.path.expanduser(config or default_cfg))
     if not os.path.exists(cfg):
         raise _err(f"config not found: {cfg} (create it or pass --config)")

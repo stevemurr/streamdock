@@ -23,8 +23,10 @@ rigor789/mirabox-streamdock-node):
     BAT  42 41 54 <len:u32 be> KK     begin image for slot KK, len JPEG bytes
 
   Image bytes then stream as raw 1024-byte HID reports (no CRT prefix), and a
-  trailing STP commits them. Key image = 96x96 JPEG. You MUST send MOD=software
-  (initialize()) before the device reports button presses on this interface.
+  trailing STP commits them. Key image = KEY_PX x KEY_PX JPEG (the panel's
+  native key resolution; it top-left-crops images larger than this). You MUST
+  send MOD=software (initialize()) before the device reports button presses on
+  this interface.
 
   Button input report, framed b"ACK\\x00\\x00OK\\x00\\x00": byte[9] = 1-based
   key id, byte[10] = state (1 = down, 0 = up).
