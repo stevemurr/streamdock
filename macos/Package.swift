@@ -9,6 +9,9 @@ let package = Package(
         .library(name: "StreamDockCore", targets: ["StreamDockCore"]),
         .executable(name: "StreamDockApp", targets: ["StreamDockApp"]),
         .executable(name: "StreamDockCoreChecks", targets: ["StreamDockCoreChecks"]),
+        // The macro helper CLI; the built binary must be literally named
+        // `streamdock` because key actions invoke it by that name on PATH.
+        .executable(name: "streamdock", targets: ["streamdock"]),
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.2"),
@@ -32,6 +35,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "StreamDockCoreChecks",
+            dependencies: ["StreamDockCore"]
+        ),
+        .executableTarget(
+            name: "streamdock",
             dependencies: ["StreamDockCore"]
         ),
         .testTarget(

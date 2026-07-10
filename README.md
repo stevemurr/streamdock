@@ -29,6 +29,57 @@ under `~/.config/streamdock/` are imported on first launch. See
 The Python CLI remains useful for diagnostics and headless operation. The old
 browser-based editor has been removed.
 
+## Key references (macros)
+
+While the macOS app is running, any key's script can **press other keys and
+switch pages** — so one key can compose a macro out of existing keys. The app
+hosts a local control socket; every action it launches gets a small
+`streamdock` helper CLI on `PATH` and a `streamdock` Python module on
+`PYTHONPATH`, both of which talk to that socket.
+
+From a shell command or inline Bash/Zsh:
+
+```bash
+streamdock press 4                    # press position 4 on the active page
+streamdock press "Amber" --page main  # press by label, on a specific page
+streamdock page media                 # switch page (also: next / prev)
+streamdock list                       # every key: page, position, label
+streamdock status                     # the app's device status line
+```
+
+From inline Python:
+
+```python
+import streamdock
+
+streamdock.key(4).press()
+streamdock.press("Amber", page="main")
+streamdock.switch_page("next")
+print(streamdock.list_keys())
+```
+
+From AppleScript, shell out (native AppleScript actions are landing
+separately):
+
+```applescript
+do shell script "streamdock press 4"
+```
+
+Key references resolve by position digits (`4`) or case-insensitive label
+(`amber`); without `--page` the currently active page is used. The app injects
+these variables into every action's environment:
+
+| Variable | Meaning |
+|---|---|
+| `STREAMDOCK_SOCKET` | path of the app's control socket |
+| `STREAMDOCK_KEY` | position of the key that launched the action |
+| `STREAMDOCK_PAGE` | page that key lives on |
+| `STREAMDOCK_PRESS_DEPTH` | how many chained presses deep the action is |
+
+Chained presses carry that depth counter, and the app refuses presses at depth
+**8** with `press depth limit reached (possible macro loop)` — so an accidental
+A→B→A cycle fizzles out instead of forking forever.
+
 ## Install
 
 Needs the native **hidapi** library (the Python `hidapi` binding links against it):
