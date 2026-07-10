@@ -43,14 +43,16 @@ preload_hidapi()          # must run before importing hid
 import hid  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from .layout import DEFAULT_LAYOUT, Layout  # noqa: E402
+from .layout import Layout  # noqa: E402
+from .profile import DEFAULT_PROFILE, DeviceProfile, profile_for  # noqa: E402
 
 VID = 0x5548
 PID = 0x1000
 USAGE_PAGE = 0xFFA0          # vendor page => the data interface (interface 0)
 PACKET = 1024                # protocol v3 uses 1024-byte reports (v1 used 512)
-KEY_PX = 70                  # per-key image size (device native res; keys crop bigger)
-ROTATE = 0                   # image rotation in degrees
+# Backwards-compatible alias for callers that imported the old global.  The
+# source of truth is the per-model profile below, not this constant.
+KEY_PX = DEFAULT_PROFILE.key_px
 
 CRT = b"CRT\x00\x00"         # 43 52 54 00 00
 
@@ -70,8 +72,14 @@ class StreamDock:
     MODE_CALCULATOR = 2
     MODE_SOFTWARE = 3
 
-    def __init__(self, vid: int = VID, pid: int = PID, layout: Layout = DEFAULT_LAYOUT):
-        self.layout = layout
+    def __init__(self, vid: int = VID, pid: int = PID, layout: "Layout | None" = None,
+                 profile: "DeviceProfile | None" = None):
+        self.profile = profile or profile_for(vid, pid)
+        if self.profile is None:
+            raise ValueError(
+                f"No device profile for {vid:#06x}:{pid:#06x}; pass profile= explicitly"
+            )
+        self.layout = layout or self.profile.layout
         path = self._find_path(vid, pid)
         if path is None:
             raise DeviceNotFound(
@@ -159,7 +167,8 @@ class StreamDock:
             img = Image.open(io.BytesIO(bytes(image)))
         else:
             img = image
-        img = img.convert("RGB").resize((KEY_PX, KEY_PX)).rotate(ROTATE)
+        size = (self.profile.key_px, self.profile.key_px)
+        img = img.convert("RGB").resize(size).rotate(self.profile.rotation)
         jpeg = io.BytesIO()
         img.save(jpeg, format="JPEG", quality=100)
         blob = jpeg.getvalue()
@@ -168,7 +177,8 @@ class StreamDock:
         self.refresh()
 
     def set_slot_color(self, slot: int, rgb: RGB):
-        self.set_slot_image(slot, Image.new("RGB", (KEY_PX, KEY_PX), rgb))
+        px = self.profile.key_px
+        self.set_slot_image(slot, Image.new("RGB", (px, px), rgb))
 
     # ---- position API (reading order 0..N-1; handles the slot remap) -------
     def has_screen(self, position: int) -> bool:

@@ -10,10 +10,12 @@ import math
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .device import KEY_PX
+from .profile import DEFAULT_PROFILE
 
 SS = 4                     # supersample factor
-S = KEY_PX * SS            # working canvas size
+KEY_PX = DEFAULT_PROFILE.key_px
+S = KEY_PX * SS            # normalized working canvas size
+CENTER = (S - 1) / 2       # geometric center in pixel coordinates
 DEFAULT_BG = (46, 49, 57)
 LIGHT_FG = (238, 240, 245)
 DARK_FG = (28, 30, 36)
@@ -224,8 +226,11 @@ def _draw_icon(img, name, cx, cy, r, fg, lw, level):
     ICONS[name](ImageDraw.Draw(layer, "RGBA"), cx, cy, r, fg, lw, level)
     bb = layer.getbbox()
     if bb:
-        dx = int(round(cx - (bb[0] + bb[2]) / 2))
-        dy = int(round(cy - (bb[1] + bb[3]) / 2))
+        # Pillow bbox right/bottom edges are exclusive, so the final ink pixel
+        # is at edge - 1.  Use pixel centers throughout to avoid a half-pixel
+        # bias on an even-sized key face.
+        dx = int(round(cx - (bb[0] + bb[2] - 1) / 2))
+        dy = int(round(cy - (bb[1] + bb[3] - 1) / 2))
         if dx or dy:
             centered = Image.new("RGBA", img.size, (0, 0, 0, 0))
             centered.paste(layer, (dx, dy))
@@ -245,7 +250,7 @@ def _draw_label(d, text, fg, has_icon, ox=0.0, oy=0.0):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 + ox - w / 2 - b[0], S * 0.76 + oy - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((CENTER + ox - w / 2 - b[0], S * 0.76 + oy - h / 2 - b[1]), text, font=f, fill=fg)
     else:
         size = int(S * 0.30)
         f = _font(size)
@@ -255,11 +260,11 @@ def _draw_label(d, text, fg, has_icon, ox=0.0, oy=0.0):
             f = _font(size)
             b = d.textbbox((0, 0), text, font=f)
         w, h = b[2] - b[0], b[3] - b[1]
-        d.text((S / 2 + ox - w / 2 - b[0], S / 2 + oy - h / 2 - b[1]), text, font=f, fill=fg)
+        d.text((CENTER + ox - w / 2 - b[0], CENTER + oy - h / 2 - b[1]), text, font=f, fill=fg)
 
 
 def render_key(label=None, icon=None, color=None, fg=None, level=None,
-               nudge_y=0.0, nudge_x=0.0):
+               nudge_y=0.0, nudge_x=0.0, key_px=KEY_PX):
     """Render a professional-looking key face.
 
     label   : text (centered, or a caption under the icon)
@@ -293,12 +298,13 @@ def render_key(label=None, icon=None, color=None, fg=None, level=None,
     if icon and icon in ICONS:
         cy = (S * 0.39 if label else S * 0.5) + oy
         r = S * (0.15 if label else 0.22)
-        _draw_icon(img, icon, S / 2 + ox, cy, r, fg, lw, level)
+        _draw_icon(img, icon, CENTER + ox, cy, r, fg, lw, level)
     if label:
         _draw_label(d, label, fg, has_icon=bool(icon and icon in ICONS), ox=ox, oy=oy)
 
-    img = img.resize((KEY_PX, KEY_PX), Image.LANCZOS)
-    out = Image.new("RGB", (KEY_PX, KEY_PX), (0, 0, 0))
-    off = (int(round(nudge_x * KEY_PX)), int(round(nudge_y * KEY_PX)))
-    out.paste(img, (0, 0), _rounded_mask((KEY_PX, KEY_PX), int(KEY_PX * 0.16), off))
+    key_px = int(key_px)
+    img = img.resize((key_px, key_px), Image.LANCZOS)
+    out = Image.new("RGB", (key_px, key_px), (0, 0, 0))
+    off = (int(round(nudge_x * key_px)), int(round(nudge_y * key_px)))
+    out.paste(img, (0, 0), _rounded_mask((key_px, key_px), int(key_px * 0.16), off))
     return out

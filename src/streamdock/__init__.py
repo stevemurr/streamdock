@@ -11,6 +11,7 @@ from .device import (
     StreamDock,
 )
 from .layout import DEFAULT_LAYOUT, HOTSPOTEK_5548_1000, Layout
+from .profile import DEFAULT_PROFILE, HOTSPOTEK_M18, DeviceProfile, profile_for
 
 __all__ = [
     "StreamDock",
@@ -23,6 +24,10 @@ __all__ = [
     "USAGE_PAGE",
     "PACKET",
     "KEY_PX",
+    "DeviceProfile",
+    "DEFAULT_PROFILE",
+    "HOTSPOTEK_M18",
+    "profile_for",
 ]
 
 __version__ = "0.1.0"

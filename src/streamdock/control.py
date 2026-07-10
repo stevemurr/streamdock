@@ -368,23 +368,26 @@ class Runner:
         self._log(f"config reloaded: {self.config_path}")
 
     # ---- rendering ---------------------------------------------------------
-    def _key_image(self, key: KeyConfig, nudge_x: float = 0.0, nudge_y: float = 0.0):
+    def _key_image(self, key: KeyConfig, key_px: int = KEY_PX,
+                   nudge_x: float = 0.0, nudge_y: float = 0.0):
         if key.image:
             p = key.image if os.path.isabs(key.image) else str(self.cfg.base_dir / key.image)
-            return Image.open(p).convert("RGB").resize((KEY_PX, KEY_PX))
+            return Image.open(p).convert("RGB").resize((key_px, key_px))
         if key.label or key.icon or key.color:
             return render_key(label=key.label, icon=key.icon, color=key.color,
-                              level=_auto_level(key), nudge_x=nudge_x, nudge_y=nudge_y)
+                              level=_auto_level(key), nudge_x=nudge_x, nudge_y=nudge_y,
+                              key_px=key_px)
         return None
 
     def render_all(self, sd: StreamDock):
         self._rendered.clear()
         sd.clear_all()
         cal_x, cal_y = DISPLAY_CAL
+        key_px = sd.profile.key_px
         for pos, key in sorted(self.by_pos.items()):
             if not sd.has_screen(pos):
                 continue      # screenless buttons can still have a command
-            img = self._key_image(key, nudge_x=cal_x, nudge_y=cal_y)
+            img = self._key_image(key, key_px=key_px, nudge_x=cal_x, nudge_y=cal_y)
             if img is None:
                 continue
             self._rendered[pos] = img

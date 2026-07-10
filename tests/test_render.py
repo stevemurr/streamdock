@@ -1,6 +1,6 @@
 """Geometry tests for the key-face renderer (pure Pillow, no hardware).
 
-These lock in the alignment contract: every face is exactly KEY_PX square, each
+These lock in the alignment contract: every M18 face is exactly 64px square, each
 icon's ink is centered on the key, an icon+caption reads as a centered group,
 the masked corners stay background, and the display calibration shifts the whole
 face as one registered unit (frame + icon + caption + corner-rounding together).
@@ -8,6 +8,7 @@ face as one registered unit (frame + icon + caption + corner-rounding together).
 from streamdock.control import DISPLAY_CAL, Config, KeyConfig, Page, Runner
 from streamdock.device import KEY_PX
 from streamdock.layout import DEFAULT_LAYOUT
+from streamdock.profile import HOTSPOTEK_M18
 from streamdock.render import icon_names, render_key
 
 DARK = (30, 30, 30)          # dark bg -> light auto-fg, so ink is high-luma
@@ -42,7 +43,10 @@ def bbox_center(pts):
 # ---- basic output contract -------------------------------------------------
 def test_output_is_key_sized_rgb():
     img = render_key(icon="power", color=DARK)
-    assert img.size == (KEY_PX, KEY_PX)
+    # Literal hardware contract: do not derive this assertion from KEY_PX.
+    assert KEY_PX == 64
+    assert HOTSPOTEK_M18.key_px == 64
+    assert img.size == (64, 64)
     assert img.mode == "RGB"
 
 
@@ -57,7 +61,7 @@ def test_every_icon_bbox_horizontally_centered():
         pts = ink(render_key(icon=name, color=DARK))
         assert pts, name
         cx, _ = bbox_center(pts)
-        assert abs(cx - MID) <= 1.5, (name, cx)
+        assert abs(cx - MID) <= 0.5, (name, cx)
 
 
 def test_symmetric_icons_have_balanced_ink_mass():
@@ -65,14 +69,14 @@ def test_symmetric_icons_have_balanced_ink_mass():
     for name in ("power", "sun", "plus", "minus", "gear", "dot", "monitor"):
         pts = ink(render_key(icon=name, color=DARK))
         centroid_x = sum(x for x, _ in pts) / len(pts)
-        assert abs(centroid_x - MID) <= 1.0, (name, centroid_x)
+        assert abs(centroid_x - MID) <= 0.5, (name, centroid_x)
 
 
 def test_full_meter_bar_is_centered():
     # at level 1.0 the fill spans the whole track, so the ink is centered
     pts = ink(render_key(icon="meter", color=DARK, level=1.0))
     cx, _ = bbox_center(pts)
-    assert abs(cx - MID) <= 1.5
+    assert abs(cx - MID) <= 0.5
 
 
 # ---- vertical centering ----------------------------------------------------
@@ -81,7 +85,7 @@ def test_iconless_icon_bbox_vertically_centered():
     for name in _centered_icons():
         pts = ink(render_key(icon=name, color=DARK))
         _, cy = bbox_center(pts)
-        assert abs(cy - MID) <= 1.5, (name, cy)
+        assert abs(cy - MID) <= 0.5, (name, cy)
 
 
 # ---- icon + caption group --------------------------------------------------
@@ -159,6 +163,7 @@ class _FakeDock:
     images so we can compare what each row would receive."""
     def __init__(self):
         self.layout = DEFAULT_LAYOUT
+        self.profile = HOTSPOTEK_M18
         self.sent = {}
 
     def clear_all(self):

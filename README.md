@@ -221,7 +221,9 @@ Lower-level helpers (`set_slot_color`, `set_slot_image`, `read_key`, `set_mode`,
 - The `Layout` type still supports screenless keys (`slot = None`) for other
   models; this unit just happens to have a screen on every key.
 
-Other models are supported by passing a different `Layout` to `StreamDock(...)`.
+Other models require a `DeviceProfile` containing both their `Layout` and exact
+key-image size; pass it as `StreamDock(..., profile=profile)`. Unknown USB IDs
+are deliberately rejected instead of borrowing another model's geometry.
 
 ## How it talks (the reverse-engineering notes)
 
@@ -249,7 +251,8 @@ Every command is `CRT\x00\x00` (`43 52 54 00 00`) + verb + payload, padded to 10
 | `BAT` | `42 41 54 <len:u32 BE> <slot>` | begin image; stream JPEG in 1024-byte reports |
 | `STP` | `53 54 50 00 00` | flush / commit pending image |
 
-Key image = 96×96 JPEG. Button input reports are framed
+For the default VSD Inside M18 / HOTSPOTEK `0x5548:0x1000` profile, each key
+image is a **64×64 JPEG**. Button input reports are framed
 `41 43 4b 00 00  4f 4b 00 00  <key_id> <state>` (`ACK…OK…`), key id at byte 9,
 state at byte 10 (`1`=press, `0`=release; both edges reported).
 

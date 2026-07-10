@@ -64,6 +64,7 @@ def info(vid: int = VidOpt, pid: int = PidOpt):
         lay = sd.layout
         typer.echo(f"device      : {vid:#06x}:{pid:#06x}")
         typer.echo(f"firmware    : {sd.firmware_version()}")
+        typer.echo(f"key image   : {sd.profile.key_px}x{sd.profile.key_px} JPEG")
         typer.echo(f"layout      : {lay.name}")
         typer.echo(f"keys        : {lay.key_count} ({lay.rows}x{lay.cols} nominal)")
         typer.echo("positions   : ('##'=LCD  'btn'=no screen)")
@@ -143,19 +144,22 @@ def identify(vid: int = VidOpt, pid: int = PidOpt):
                 pass
         return ImageFont.load_default()
 
-    f = _font(56)
     with _open(vid, pid) as sd:
+        key_px = sd.profile.key_px
+        f = _font(round(key_px * 0.58))
         sd.set_brightness(90)
         sd.clear_all()
         for pos in range(sd.layout.key_count):
             if not sd.has_screen(pos):
                 continue
-            img = Image.new("RGB", (96, 96), (30, 90, 160) if pos < 5 else (150, 60, 30))
+            img = Image.new("RGB", (key_px, key_px),
+                            (30, 90, 160) if pos < 5 else (150, 60, 30))
             d = ImageDraw.Draw(img)
             s = str(pos)
             box = d.textbbox((0, 0), s, font=f)
             w, h = box[2] - box[0], box[3] - box[1]
-            d.text(((96 - w) / 2 - box[0], (96 - h) / 2 - box[1]), s, font=f, fill="white")
+            d.text(((key_px - w) / 2 - box[0], (key_px - h) / 2 - box[1]),
+                   s, font=f, fill="white")
             sd.set_position_image(pos, img)
     typer.echo("drew position numbers on the LCD keys")
 
@@ -282,8 +286,9 @@ def icon(
             rgb = _parse_color(color)
         except ValueError as e:
             raise typer.BadParameter(str(e))
-    img = render_key(label=label, icon=name, color=rgb, level=level)
     with _open(vid, pid) as sd:
+        img = render_key(label=label, icon=name, color=rgb, level=level,
+                         key_px=sd.profile.key_px)
         if not sd.set_position_image(position, img):
             raise _err(f"position {position} has no screen (or is out of range)")
     typer.echo(f"position {position} <- icon {name}")
