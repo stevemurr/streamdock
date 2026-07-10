@@ -99,19 +99,15 @@ struct SourceEditorView: NSViewRepresentable {
             let baseFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
             storage.beginEditing()
             storage.setAttributes([.font: baseFont, .foregroundColor: NSColor.textColor], range: full)
-            apply(pattern: stringPattern, color: .systemRed, to: storage)
-            apply(pattern: numberPattern, color: .systemPurple, to: storage)
-            switch language {
-            case .python:
-                apply(pattern: pythonKeywordPattern, color: .systemPink, to: storage)
-                apply(pattern: "(?m)#.*$", color: .secondaryLabelColor, to: storage)
-            case .bash, .zsh, .automatic:
-                apply(pattern: shellKeywordPattern, color: .systemPink, to: storage)
-                apply(pattern: "\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?", color: .systemTeal, to: storage)
-                apply(pattern: "(?m)#.*$", color: .secondaryLabelColor, to: storage)
-            case .appleScript:
-                apply(pattern: appleScriptKeywordPattern, color: .systemPink, to: storage)
-                apply(pattern: "(?m)--.*$", color: .secondaryLabelColor, to: storage)
+            // Tokens arrive sorted with enclosing regions before nested ones
+            // (a $VAR inside a string), so applying in order nests correctly.
+            for token in SyntaxHighlighter.tokens(for: storage.string, language: language)
+            where NSMaxRange(token.range) <= storage.length {
+                storage.addAttribute(
+                    .foregroundColor,
+                    value: Self.color(for: token.kind),
+                    range: token.range
+                )
             }
             let selection = editor.selectedRange()
             if selection.location <= storage.length {
@@ -124,20 +120,19 @@ struct SourceEditorView: NSViewRepresentable {
             editor.typingAttributes = [.font: baseFont, .foregroundColor: NSColor.textColor]
         }
 
-        private func apply(pattern: String, color: NSColor, to storage: NSTextStorage) {
-            guard let expression = try? NSRegularExpression(pattern: pattern) else { return }
-            let range = NSRange(location: 0, length: storage.length)
-            expression.enumerateMatches(in: storage.string, range: range) { match, _, _ in
-                guard let match else { return }
-                storage.addAttribute(.foregroundColor, value: color, range: match.range)
+        private static func color(for kind: SyntaxTokenKind) -> NSColor {
+            switch kind {
+            case .keyword: .systemPink
+            case .string: .systemRed
+            case .comment: .secondaryLabelColor
+            case .number: .systemPurple
+            case .variable: .systemTeal
+            case .functionName: .systemBlue
+            case .decorator: .systemOrange
+            case .flag: .systemOrange
+            case .commandSubstitution: .systemCyan
             }
         }
-
-        private let stringPattern = #"(?s)(\"\"\".*?\"\"\"|'''.*?'''|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')"#
-        private let numberPattern = #"\b(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?)\b"#
-        private let pythonKeywordPattern = #"\b(?:and|as|assert|async|await|break|case|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|match|None|nonlocal|not|or|pass|raise|return|True|try|while|with|yield)\b"#
-        private let shellKeywordPattern = #"\b(?:case|do|done|elif|else|esac|export|fi|for|function|if|in|local|readonly|select|then|typeset|until|while)\b"#
-        private let appleScriptKeywordPattern = #"\b(?:tell|end|set|to|of|on|if|then|else|repeat|return|activate|property|script|display|try|error)\b"#
     }
 }
 
