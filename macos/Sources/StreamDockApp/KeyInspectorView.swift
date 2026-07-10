@@ -122,12 +122,14 @@ private struct ColorRow: View {
             HStack(spacing: 8) {
                 ColorPicker("Color", selection: pickerColor, supportsOpacity: false)
                     .labelsHidden()
-                TextField("#rrggbb", text: $draft)
+                TextField("Hex color", text: $draft, prompt: Text("#rrggbb"))
+                    .labelsHidden()
                     .font(.system(.body, design: .monospaced))
                     .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
                     .focused($hexFieldFocused)
                     .onSubmit(commitDraft)
-                    .frame(maxWidth: 120)
+                    .frame(width: 90)
             }
         }
         .onAppear { draft = colorHex }
