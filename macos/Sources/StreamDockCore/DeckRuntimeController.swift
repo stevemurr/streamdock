@@ -73,6 +73,19 @@ public final class DeckRuntimeController {
         return configuration.pages[activePageIndex]
     }
 
+    /// Name of the page currently shown on the deck, if any.
+    public var activePageName: String? { activePage?.name }
+
+    /// Puts the deck's displays to sleep; the next hardware press wakes it.
+    public func sleepDeck() {
+        guard device.isConnected, !asleep else { return }
+        do {
+            try device.sleepDisplay()
+            asleep = true
+            onStatusChange?("Deck asleep · press any key to wake")
+        } catch { report(error) }
+    }
+
     private func tick() {
         if !device.isConnected {
             connectIfNeeded()
@@ -116,11 +129,7 @@ public final class DeckRuntimeController {
         guard isDown, let key = activePage?.keys.first(where: { $0.position == position }) else { return }
         switch key.trigger {
         case .sleepDeck:
-            do {
-                try device.sleepDisplay()
-                asleep = true
-                onStatusChange?("Deck asleep · press any key to wake")
-            } catch { report(error) }
+            sleepDeck()
         case let .switchPage(target):
             switchPage(target)
         case .none:
@@ -130,20 +139,29 @@ public final class DeckRuntimeController {
         }
     }
 
-    private func switchPage(_ target: String) {
+    /// Switches to a page by name (case-insensitive) or to "next"/"prev".
+    /// Works without a connected device — the page change simply takes effect
+    /// on screen once the deck is connected and awake.
+    @discardableResult
+    public func switchPage(_ target: String) -> Bool {
         let count = configuration.pages.count
-        guard count > 0 else { return }
+        guard count > 0 else { return false }
         if target == "next" {
             activePageIndex = (activePageIndex + 1) % count
         } else if target == "prev" {
             activePageIndex = (activePageIndex - 1 + count) % count
-        } else if let index = configuration.pages.firstIndex(where: { $0.name == target }) {
+        } else if let index = configuration.pages.firstIndex(where: {
+            $0.name.caseInsensitiveCompare(target) == .orderedSame
+        }) {
             activePageIndex = index
         } else {
             onStatusChange?("Unknown page: \(target)")
-            return
+            return false
         }
-        do { try renderActivePage() } catch { report(error) }
+        if device.isConnected, !asleep {
+            do { try renderActivePage() } catch { report(error) }
+        }
+        return true
     }
 
     private func report(_ error: Error) {

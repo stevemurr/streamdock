@@ -28,6 +28,25 @@ public struct ExecutionResult: Equatable, Sendable {
     }
 }
 
+/// Where a press came from, threaded into the child process environment so
+/// actions can talk back to the app (key references / macros) and so chained
+/// presses carry a growing depth counter for loop protection.
+public struct KeyExecutionContext: Sendable {
+    /// Reading-order position of the key that launched the action.
+    public var keyPosition: Int
+    /// Name of the page the key lives on, if known.
+    public var pageName: String?
+    /// How many chained presses deep this action already is. The child sees
+    /// `STREAMDOCK_PRESS_DEPTH` = `pressDepth + 1`.
+    public var pressDepth: Int
+
+    public init(keyPosition: Int, pageName: String? = nil, pressDepth: Int = 0) {
+        self.keyPosition = keyPosition
+        self.pageName = pageName
+        self.pressDepth = pressDepth
+    }
+}
+
 public enum ActionExecutionError: LocalizedError {
     case noAction
     case missingApplication(String)
@@ -80,6 +99,27 @@ public final class ActionExecutor: @unchecked Sendable {
 
     private let lock = NSLock()
     private var running: [UUID: ProcessBox] = [:]
+    private var _controlSocketPath: String?
+    private var _toolDirectory: String?
+    private var _pythonModuleDirectory: String?
+
+    /// Path of the app's control socket, exported to actions as `STREAMDOCK_SOCKET`.
+    public var controlSocketPath: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _controlSocketPath }
+        set { lock.lock(); _controlSocketPath = newValue; lock.unlock() }
+    }
+
+    /// Directory containing the `streamdock` helper binary; prepended to `PATH`.
+    public var toolDirectory: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _toolDirectory }
+        set { lock.lock(); _toolDirectory = newValue; lock.unlock() }
+    }
+
+    /// Directory containing the `streamdock.py` module; prepended to `PYTHONPATH`.
+    public var pythonModuleDirectory: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _pythonModuleDirectory }
+        set { lock.lock(); _pythonModuleDirectory = newValue; lock.unlock() }
+    }
 
     public init(
         loginShellPath: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
@@ -129,12 +169,16 @@ public final class ActionExecutor: @unchecked Sendable {
         lock.unlock()
     }
 
-    public func execute(_ trigger: KeyTrigger, keyID: UUID = UUID()) async throws -> ExecutionResult {
+    public func execute(
+        _ trigger: KeyTrigger,
+        keyID: UUID = UUID(),
+        context: KeyExecutionContext? = nil
+    ) async throws -> ExecutionResult {
         if case let .launchApplication(reference) = trigger {
             return try await MainActor.run { try self.launchApplication(reference) }
         }
         return try await Task.detached(priority: .userInitiated) {
-            try self.executeBlocking(trigger, keyID: keyID)
+            try self.executeBlocking(trigger, keyID: keyID, context: context)
         }.value
     }
 
@@ -176,7 +220,11 @@ public final class ActionExecutor: @unchecked Sendable {
         loginShellPath.hasSuffix("bash") ? .bash : .zsh
     }
 
-    private func executeBlocking(_ trigger: KeyTrigger, keyID: UUID) throws -> ExecutionResult {
+    private func executeBlocking(
+        _ trigger: KeyTrigger,
+        keyID: UUID,
+        context: KeyExecutionContext?
+    ) throws -> ExecutionResult {
         switch trigger {
         case .none, .sleepDeck, .switchPage:
             throw ActionExecutionError.noAction
@@ -197,6 +245,7 @@ public final class ActionExecutor: @unchecked Sendable {
                 arguments: ["-l", "-c", action.source],
                 options: action.options,
                 keyID: keyID,
+                context: context,
                 description: "\(language.displayName) command"
             )
         case let .inlineScript(action):
@@ -219,6 +268,7 @@ public final class ActionExecutor: @unchecked Sendable {
                 arguments: [],
                 options: action.options,
                 keyID: keyID,
+                context: context,
                 description: "inline \(language.displayName)"
             )
         case let .scriptFile(action):
@@ -239,6 +289,7 @@ public final class ActionExecutor: @unchecked Sendable {
                 arguments: action.arguments,
                 options: action.options,
                 keyID: keyID,
+                context: context,
                 description: file.lastPathComponent
             )
         }
@@ -250,6 +301,7 @@ public final class ActionExecutor: @unchecked Sendable {
         arguments: [String],
         options: ExecutionOptions,
         keyID: UUID,
+        context: KeyExecutionContext?,
         description: String
     ) throws -> ExecutionResult {
         let command: String
@@ -263,6 +315,7 @@ public final class ActionExecutor: @unchecked Sendable {
             arguments: [command, file.path] + arguments,
             options: options,
             keyID: keyID,
+            context: context,
             description: description
         )
     }
@@ -309,6 +362,7 @@ public final class ActionExecutor: @unchecked Sendable {
         arguments: [String],
         options: ExecutionOptions,
         keyID: UUID,
+        context: KeyExecutionContext? = nil,
         description: String
     ) throws -> ExecutionResult {
         lock.lock()
@@ -325,11 +379,34 @@ public final class ActionExecutor: @unchecked Sendable {
         process.arguments = arguments
         process.currentDirectoryURL = workingDirectory(for: options)
         lock.lock()
-        let environment = baseEnvironment
+        var environment = baseEnvironment
             .merging(secretEnvironment) { _, secretValue in secretValue }
             .merging(fileEnvironment) { _, fileValue in fileValue }
-            .merging(options.environment) { _, actionValue in actionValue }
+        let socketPath = _controlSocketPath
+        let toolDirectory = _toolDirectory
+        let pythonModuleDirectory = _pythonModuleDirectory
         lock.unlock()
+        // Key-reference (macro) plumbing: tell the child how to reach the app
+        // and where it is in a press chain. Per-action overrides still win —
+        // they are merged last.
+        if let socketPath {
+            environment["STREAMDOCK_SOCKET"] = socketPath
+        }
+        if let context {
+            environment["STREAMDOCK_KEY"] = String(context.keyPosition)
+            if let pageName = context.pageName {
+                environment["STREAMDOCK_PAGE"] = pageName
+            }
+            environment["STREAMDOCK_PRESS_DEPTH"] = String(context.pressDepth + 1)
+        }
+        if let toolDirectory {
+            environment["PATH"] = environment["PATH"].map { "\(toolDirectory):\($0)" } ?? toolDirectory
+        }
+        if let pythonModuleDirectory {
+            environment["PYTHONPATH"] = environment["PYTHONPATH"]
+                .map { "\(pythonModuleDirectory):\($0)" } ?? pythonModuleDirectory
+        }
+        environment.merge(options.environment) { _, actionValue in actionValue }
         process.environment = environment
         process.standardOutput = stdout
         process.standardError = stderr

@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     private let executor = ActionExecutor()
     private let runtime = DeckRuntimeController()
     private let secretsStore = SecretsStore()
+    private var controlServer: ControlServer?
     private var importedFrom: URL?
     private var terminationObserver: NSObjectProtocol?
 
@@ -42,14 +43,21 @@ final class AppModel: ObservableObject {
         configureEnvironmentFile()
         loadSecrets()
         runtime.onStatusChange = { [weak self] status in self?.deviceStatus = status }
-        runtime.onExecutableAction = { [weak self] key in self?.runHardwareAction(key) }
+        runtime.onExecutableAction = { [weak self] key in
+            // Hardware presses start a fresh chain: children see depth 1.
+            self?.runHardwareAction(key, pageName: self?.runtime.activePageName, depth: 0)
+        }
         runtime.start(configuration: configuration)
+        setUpControlServer()
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.runtime.stop() }
+            Task { @MainActor in
+                self?.controlServer?.stop()
+                self?.runtime.stop()
+            }
         }
     }
 
@@ -139,9 +147,14 @@ final class AppModel: ObservableObject {
         isExecuting = true
         executionError = nil
         executionResult = nil
+        let context = KeyExecutionContext(
+            keyPosition: key.position,
+            pageName: selectedPage?.name,
+            pressDepth: 0
+        )
         Task {
             do {
-                executionResult = try await executor.execute(key.trigger, keyID: key.id)
+                executionResult = try await executor.execute(key.trigger, keyID: key.id, context: context)
             } catch {
                 executionError = error.localizedDescription
             }
@@ -159,10 +172,11 @@ final class AppModel: ObservableObject {
         configureEnvironmentFile()
     }
 
-    private func runHardwareAction(_ key: KeyConfiguration) {
+    private func runHardwareAction(_ key: KeyConfiguration, pageName: String?, depth: Int) {
+        let context = KeyExecutionContext(keyPosition: key.position, pageName: pageName, pressDepth: depth)
         Task {
             do {
-                let result = try await executor.execute(key.trigger, keyID: key.id)
+                let result = try await executor.execute(key.trigger, keyID: key.id, context: context)
                 executionResult = result
                 if !result.succeeded {
                     executionError = "\(key.label.isEmpty ? "Key \(key.position + 1)" : key.label) exited with status \(result.exitCode)."
@@ -171,6 +185,102 @@ final class AppModel: ObservableObject {
                 executionError = error.localizedDescription
             }
         }
+    }
+
+    // MARK: - Key references (macros)
+
+    /// Hosts the control socket that lets one key's action press other keys,
+    /// installs the `streamdock` Python module, and points the executor at
+    /// the bundled `streamdock` CLI so actions find both on PATH/PYTHONPATH.
+    private func setUpControlServer() {
+        let supportURL = ConfigurationStore.applicationSupportURL
+        let pythonDirectory = supportURL.appendingPathComponent("python", isDirectory: true)
+        do {
+            try PythonBridge.install(into: pythonDirectory)
+            executor.pythonModuleDirectory = pythonDirectory.path
+        } catch {
+            // Python macros unavailable; shell macros still work.
+        }
+        if let executableURL = Bundle.main.executableURL {
+            let toolDirectory = executableURL.deletingLastPathComponent()
+            let cli = toolDirectory.appendingPathComponent("streamdock")
+            if FileManager.default.isExecutableFile(atPath: cli.path) {
+                executor.toolDirectory = toolDirectory.path
+            }
+        }
+        let socketURL = supportURL.appendingPathComponent("control.sock")
+        let server = ControlServer { [weak self] request in
+            guard let self else { return .failure("StreamDock is shutting down") }
+            return await self.handleControlRequest(request)
+        }
+        do {
+            try FileManager.default.createDirectory(at: supportURL, withIntermediateDirectories: true)
+            try server.start(socketPath: socketURL.path)
+            executor.controlSocketPath = socketURL.path
+            controlServer = server
+        } catch {
+            // Without the socket, actions simply see no STREAMDOCK_SOCKET.
+        }
+    }
+
+    private func handleControlRequest(_ request: ControlRequest) -> ControlResponse {
+        switch request.command {
+        case ControlCommand.status:
+            return ControlResponse(ok: true, detail: deviceStatus)
+        case ControlCommand.list:
+            let keys = configuration.pages.flatMap { page in
+                page.keys
+                    .sorted { $0.position < $1.position }
+                    .map { ControlKeyInfo(position: $0.position, label: $0.label, page: page.name) }
+            }
+            return ControlResponse(ok: true, detail: "\(keys.count) keys", keys: keys)
+        case ControlCommand.switchPage:
+            guard let target = request.page, !target.isEmpty else {
+                return .failure("switch-page requires a page name, next, or prev")
+            }
+            return switchPageViaRuntime(target)
+        case ControlCommand.press:
+            return handleControlPress(request)
+        default:
+            return .failure("unknown command: \(request.command)")
+        }
+    }
+
+    private func handleControlPress(_ request: ControlRequest) -> ControlResponse {
+        guard let reference = request.key, !reference.isEmpty else {
+            return .failure("press requires a key position or label")
+        }
+        guard let match = ControlKeyResolver.resolve(
+            reference: reference,
+            page: request.page,
+            activePage: runtime.activePageName,
+            in: configuration
+        ) else {
+            let scope = request.page.map { " on page \"\($0)\"" } ?? ""
+            return .failure("no key matching \"\(reference)\"\(scope)")
+        }
+        let name = match.key.label.isEmpty ? "key \(match.key.position)" : match.key.label
+        switch match.key.trigger {
+        case .none:
+            return ControlResponse(ok: true, detail: "\(name) has no action")
+        case let .switchPage(target):
+            return switchPageViaRuntime(target)
+        case .sleepDeck:
+            runtime.sleepDeck()
+            return ControlResponse(ok: true, detail: "deck sleeping")
+        case .launchApplication, .shellCommand, .inlineScript, .scriptFile:
+            // Same fire-and-forget path as a hardware press, but the chain
+            // depth carries over from the requesting action.
+            runHardwareAction(match.key, pageName: match.page.name, depth: request.depth ?? 0)
+            return ControlResponse(ok: true, detail: "pressed \(name) on \(match.page.name)")
+        }
+    }
+
+    private func switchPageViaRuntime(_ target: String) -> ControlResponse {
+        guard runtime.switchPage(target) else {
+            return .failure("unknown page: \(target)")
+        }
+        return ControlResponse(ok: true, detail: "switched to page \(runtime.activePageName ?? target)")
     }
 
     private func configureEnvironmentFile() {
