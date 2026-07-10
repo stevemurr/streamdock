@@ -155,24 +155,7 @@ private struct DeckEditorView: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 5), spacing: 14) {
                 ForEach(0..<15, id: \.self) { position in
-                    Button {
-                        model.select(position: position)
-                    } label: {
-                        KeyFaceView(key: model.key(at: position), position: position)
-                    }
-                    .buttonStyle(.plain)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                model.selectedPosition == position ? Color.accentColor : .clear,
-                                lineWidth: 3
-                            )
-                    }
-                    .shadow(
-                        color: model.selectedPosition == position
-                            ? Color.accentColor.opacity(0.35) : .clear,
-                        radius: 6
-                    )
+                    DeckKeySlot(position: position)
                 }
             }
             .padding(20)
@@ -185,6 +168,68 @@ private struct DeckEditorView: View {
         }
         .padding(24)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+/// One slot in the deck editor grid. Tap selects the slot; occupied key faces
+/// can be dragged onto any other slot to move the key (or swap with the key
+/// already there). The slot highlights while a drag hovers over it.
+private struct DeckKeySlot: View {
+    @EnvironmentObject private var model: AppModel
+    let position: Int
+    @State private var isDropTargeted = false
+
+    var body: some View {
+        slotButton(for: model.key(at: position))
+            .buttonStyle(.plain)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        model.selectedPosition == position ? Color.accentColor : .clear,
+                        lineWidth: 3
+                    )
+            }
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.accentColor.opacity(0.2))
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(
+                            Color.accentColor,
+                            style: StrokeStyle(lineWidth: 3, dash: [7, 5])
+                        )
+                }
+            }
+            .shadow(
+                color: model.selectedPosition == position
+                    ? Color.accentColor.opacity(0.35) : .clear,
+                radius: 6
+            )
+            .scaleEffect(isDropTargeted ? 1.05 : 1)
+            .animation(.easeOut(duration: 0.12), value: isDropTargeted)
+            .dropDestination(for: String.self) { items, _ in
+                guard let payload = items.first, let source = Int(payload) else { return false }
+                model.moveKey(from: source, to: position)
+                return true
+            } isTargeted: { targeting in
+                isDropTargeted = targeting
+            }
+    }
+
+    /// The tappable key face; occupied faces also act as drag sources carrying
+    /// their slot index as the payload.
+    @ViewBuilder
+    private func slotButton(for key: KeyConfiguration?) -> some View {
+        let button = Button {
+            model.select(position: position)
+        } label: {
+            KeyFaceView(key: key, position: position)
+        }
+        if key != nil {
+            button.draggable(String(position))
+        } else {
+            button
+        }
     }
 }
 

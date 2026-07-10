@@ -114,6 +114,27 @@ final class AppModel: ObservableObject {
         isDirty = true
     }
 
+    /// Moves (or swaps) keys on the selected page in response to a drag in the
+    /// deck editor. Selection follows the moved key so the inspector keeps
+    /// showing whatever the user dragged.
+    func moveKey(from: Int, to: Int) {
+        guard let selectedPageID,
+              let pageIndex = configuration.pages.firstIndex(where: { $0.id == selectedPageID })
+        else { return }
+        let before = configuration.pages[pageIndex]
+        var page = before
+        page.moveKey(from: from, to: to)
+        guard page != before else { return }
+        let destinationWasOccupied = before.keys.contains { $0.position == to }
+        configuration.pages[pageIndex] = page
+        isDirty = true
+        if selectedPosition == from {
+            selectedPosition = to
+        } else if selectedPosition == to, destinationWasOccupied {
+            selectedPosition = from
+        }
+    }
+
     func updateSelectedPageName(_ name: String) {
         guard let selectedPageID,
               let index = configuration.pages.firstIndex(where: { $0.id == selectedPageID }) else { return }
