@@ -1,6 +1,7 @@
 # streamdock
 
-A userspace **driver + CLI** for the off-brand Elgato-Stream-Deck-style macropad
+A native macOS editor/runtime plus a userspace **Python driver + CLI** for the
+off-brand Elgato-Stream-Deck-style macropad
 that enumerates over USB as **`HOTSPOTEKUSB HID DEMO`** (`0x5548:0x1000`) — one of
 the MiraBox / Ajazz "Stream Dock" clones. Talks to the device directly, no vendor
 software required. Built and verified on macOS (Apple Silicon).
@@ -11,6 +12,22 @@ uv run streamdock color 0 '#00c800'      # top-left key green
 uv run streamdock brightness 80
 uv run streamdock watch                   # stream button presses
 ```
+
+## Native macOS app
+
+The primary editor is now a macOS 14+ SwiftUI application under
+[`macos/`](macos/). It provides a native 3×5 deck editor, named pages, typed
+actions, app and script pickers, inline Python/Bash/Zsh editing with automatic
+language detection and syntax highlighting, per-action working directories,
+captured output, a menu-bar runtime, launch-at-login, and a native IOHID driver.
+
+Open `macos/StreamDock.xcodeproj` in the full Xcode application and run the
+`StreamDock` scheme on **My Mac**. Existing YAML and legacy TOML configurations
+under `~/.config/streamdock/` are imported on first launch. See
+[`macos/README.md`](macos/README.md) for build and verification details.
+
+The Python CLI remains useful for diagnostics and headless operation. The old
+browser-based editor has been removed.
 
 ## Install
 
@@ -38,7 +55,6 @@ do **not** need to export `DYLD_LIBRARY_PATH`.
 | Command | Description |
 |---|---|
 | `run [config]` | **run the control loop** from a config file (see below) |
-| `ui [config]` | **configure the deck in a local web UI** (`--port 8383`, `--no-open`) |
 | `install-agent` | install+start a macOS LaunchAgent that runs the loop at login |
 | `uninstall-agent` | stop and remove that LaunchAgent |
 | `agent-status` | show whether the LaunchAgent is loaded / running |
@@ -105,31 +121,14 @@ Per key: `label`, `icon`, `color`, `image`, `level` control the look; `app`
 `page:next`/`page:prev`/`page:<name>`) control what a press does. Pressing a
 page key re-renders the whole deck with that page's keys.
 
-The loop also **hot-reloads the config**: edit and save the file (or press Save
-in `streamdock ui`) and the deck re-renders within ~2s — no restart. A
-half-written or invalid file is ignored and the previous config stays active.
+The loop also **hot-reloads the config**: edit and save the file and the deck
+re-renders within ~2s — no restart. A half-written or invalid file is ignored
+and the previous config stays active.
 
 **Legacy TOML configs keep working**: a flat `[[keys]]` TOML file (see
 `streamdock.toml` in the repo) loads as a single page named `main`. YAML is the
 canonical format going forward (`streamdock run` prefers `streamdock.yaml`,
 then `streamdock.toml`, then the same names under `~/.config/streamdock/`).
-
-## Web UI (`streamdock ui`)
-
-```bash
-uv run streamdock ui                 # opens http://127.0.0.1:8383/
-uv run streamdock ui --port 9000 --no-open
-```
-
-A local, dependency-free web app (stdlib server, bound to 127.0.0.1) for
-editing the config visually: page tabs (add/rename/reorder/delete), a 3×5 grid
-that mirrors the device with live server-rendered previews of every key face,
-and a key editor — label, icon, color, level, and an on-press action: open a
-macOS app (with the installed-apps list suggested as you type), run a shell
-command, switch page, or sleep the deck. **Save** validates and writes the YAML
-atomically, so a running `streamdock run` picks it up live; **Reload from
-disk** re-reads outside edits. Editing a legacy `.toml` config saves next to it
-as `.yaml` (which then takes precedence).
 
 ### Key rendering
 

@@ -1,0 +1,228 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* StreamDockApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000001 /* StreamDockApp.swift */; };
+		B00000000000000000000002 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000002 /* AppModel.swift */; };
+		B00000000000000000000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000003 /* ContentView.swift */; };
+		B00000000000000000000004 /* KeyInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000004 /* KeyInspectorView.swift */; };
+		B00000000000000000000005 /* SourceEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000005 /* SourceEditorView.swift */; };
+		B00000000000000000000007 /* SecretsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000007 /* SecretsView.swift */; };
+		B00000000000000000000006 /* StreamDockCore in Frameworks */ = {isa = PBXBuildFile; productRef = P00000000000000000000001 /* StreamDockCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F00000000000000000000001 /* StreamDockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDockApp.swift; sourceTree = "<group>"; };
+		F00000000000000000000002 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		F00000000000000000000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F00000000000000000000004 /* KeyInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyInspectorView.swift; sourceTree = "<group>"; };
+		F00000000000000000000005 /* SourceEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceEditorView.swift; sourceTree = "<group>"; };
+		F00000000000000000000007 /* SecretsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsView.swift; sourceTree = "<group>"; };
+		F00000000000000000000006 /* StreamDock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StreamDock.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (B00000000000000000000006 /* StreamDockCore in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				G00000000000000000000002 /* StreamDockApp */,
+				G00000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G00000000000000000000002 /* StreamDockApp */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000001 /* StreamDockApp.swift */,
+				F00000000000000000000002 /* AppModel.swift */,
+				F00000000000000000000003 /* ContentView.swift */,
+				F00000000000000000000004 /* KeyInspectorView.swift */,
+				F00000000000000000000005 /* SourceEditorView.swift */,
+				F00000000000000000000007 /* SecretsView.swift */,
+			);
+			path = Sources/StreamDockApp;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (F00000000000000000000006 /* StreamDock.app */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T00000000000000000000001 /* StreamDock */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C00000000000000000000003 /* Build configuration list for PBXNativeTarget "StreamDock" */;
+			buildPhases = (
+				A00000000000000000000001 /* Sources */,
+				A00000000000000000000002 /* Frameworks */,
+				A00000000000000000000003 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = StreamDock;
+			packageProductDependencies = (P00000000000000000000001 /* StreamDockCore */,);
+			productName = StreamDock;
+			productReference = F00000000000000000000006 /* StreamDock.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PR0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = C00000000000000000000001 /* Build configuration list for PBXProject "StreamDock" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = G00000000000000000000001;
+			packageReferences = (PK0000000000000000000001 /* XCLocalSwiftPackageReference "." */,);
+			productRefGroup = G00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (T00000000000000000000001 /* StreamDock */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000001 /* StreamDockApp.swift in Sources */,
+				B00000000000000000000002 /* AppModel.swift in Sources */,
+				B00000000000000000000003 /* ContentView.swift in Sources */,
+				B00000000000000000000004 /* KeyInspectorView.swift in Sources */,
+				B00000000000000000000005 /* SourceEditorView.swift in Sources */,
+				B00000000000000000000007 /* SecretsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C00000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C00000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		C00000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = StreamDock;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.2.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevemurr.StreamDock;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C00000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = StreamDock;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevemurr.StreamDock;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C00000000000000000000001 /* Build configuration list for PBXProject "StreamDock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (C00000000000000000000011 /* Debug */, C00000000000000000000012 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C00000000000000000000003 /* Build configuration list for PBXNativeTarget "StreamDock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (C00000000000000000000021 /* Debug */, C00000000000000000000022 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		PK0000000000000000000001 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ".";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		P00000000000000000000001 /* StreamDockCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PK0000000000000000000001 /* XCLocalSwiftPackageReference "." */;
+			productName = StreamDockCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = PR0000000000000000000001 /* Project object */;
+}

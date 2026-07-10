@@ -201,8 +201,8 @@ def run(
 
     Renders your configured buttons, runs each button's command on press, and
     keeps the device alive so it does not revert to its kiosk image. Edits to
-    the config file (e.g. saving from `streamdock ui`) hot-reload live. Ctrl-C
-    to stop. See the example streamdock.yaml in the repo for the format.
+    the config file hot-reload live. Ctrl-C to stop. See the example
+    streamdock.yaml in the repo for the format.
     """
     from .control import Runner, load_config
     path = config or _default_config()
@@ -218,29 +218,6 @@ def run(
         run_with_menubar(runner)
     else:
         runner.run()
-
-
-@app.command()
-def ui(
-    config: Optional[str] = typer.Argument(
-        None, help="config file to edit (default: resolved like `run`; created on first save)"),
-    port: int = typer.Option(8383, "--port", help="port to listen on (localhost only)"),
-    no_open: bool = typer.Option(False, "--no-open", help="don't open the browser"),
-):
-    """Configure the deck's buttons in a local web UI.
-
-    Assign macOS apps, shell commands, page switches and looks to keys across
-    multiple pages, then Save — the file is written as YAML, and a running
-    `streamdock run` on the same file picks the change up live. A legacy TOML
-    config is loaded for editing but saved next to it as .yaml (the new
-    canonical format).
-    """
-    from .webui import serve
-    path = config or _default_config()
-    try:
-        serve(path, port=port, open_browser=not no_open)
-    except OSError as e:
-        raise _err(f"could not start server on 127.0.0.1:{port}: {e}")
 
 
 @app.command()

@@ -1,8 +1,5 @@
 # Example control-loop config (YAML, the canonical format).  Run it with:
 #   uv run streamdock run streamdock.yaml
-# ...or edit it visually with:
-#   uv run streamdock ui
-#
 # Positions are reading order, 0 = top-left .. 14 = bottom-right (3x5 grid).
 # Each key may set:
 #   label   -> caption text

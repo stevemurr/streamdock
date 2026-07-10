@@ -69,8 +69,8 @@ def effective_command(key: KeyConfig) -> "str | None":
 
 
 # ---- config (de)serialization ----------------------------------------------
-# The dict shape below is shared by the YAML file format and the web UI's JSON
-# API: {"settings": {...}, "pages": [{"name": ..., "keys": [{...}, ...]}]}.
+# The dict shape below is the YAML representation used for configuration:
+# {"settings": {...}, "pages": [{"name": ..., "keys": [{...}, ...]}]}.
 
 def key_from_dict(k: dict) -> KeyConfig:
     if "position" not in k:
@@ -345,8 +345,8 @@ class Runner:
 
     def _maybe_reload_config(self, sd: StreamDock, now: float, asleep: bool):
         """Poll the config file's mtime (at most every RELOAD_CHECK_SECONDS) and
-        hot-apply changes — this is what makes the web UI's Save take effect
-        live. A file that fails to parse keeps the previous config."""
+        hot-apply changes. A file that fails to parse keeps the previous
+        config."""
         if self.config_path is None or now - self._last_reload_check < self.RELOAD_CHECK_SECONDS:
             return
         self._last_reload_check = now

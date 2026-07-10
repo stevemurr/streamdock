@@ -25,3 +25,15 @@ jobs:
 
       - name: Test
         run: uv run pytest -q
+
+      - name: Build native macOS app
+        working-directory: macos
+        run: swift build --target StreamDockApp
+
+      - name: Test native core
+        working-directory: macos
+        run: swift test
+
+      - name: Run native integration checks
+        working-directory: macos
+        run: swift run StreamDockCoreChecks
