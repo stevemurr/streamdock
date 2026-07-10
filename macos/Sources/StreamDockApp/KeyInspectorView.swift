@@ -205,7 +205,7 @@ private struct ActionEditor: View {
             }
         case .shellCommand:
             Picker("Shell", selection: commandLanguage) {
-                ForEach(ScriptLanguage.allCases.filter { $0 != .python }) { language in
+                ForEach(ScriptLanguage.allCases.filter { $0 != .python && $0 != .appleScript }) { language in
                     Text(language.displayName).tag(language)
                 }
             }

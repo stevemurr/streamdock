@@ -109,6 +109,9 @@ struct SourceEditorView: NSViewRepresentable {
                 apply(pattern: shellKeywordPattern, color: .systemPink, to: storage)
                 apply(pattern: "\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?", color: .systemTeal, to: storage)
                 apply(pattern: "(?m)#.*$", color: .secondaryLabelColor, to: storage)
+            case .appleScript:
+                apply(pattern: appleScriptKeywordPattern, color: .systemPink, to: storage)
+                apply(pattern: "(?m)--.*$", color: .secondaryLabelColor, to: storage)
             }
             let selection = editor.selectedRange()
             if selection.location <= storage.length {
@@ -134,6 +137,7 @@ struct SourceEditorView: NSViewRepresentable {
         private let numberPattern = #"\b(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?)\b"#
         private let pythonKeywordPattern = #"\b(?:and|as|assert|async|await|break|case|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|match|None|nonlocal|not|or|pass|raise|return|True|try|while|with|yield)\b"#
         private let shellKeywordPattern = #"\b(?:case|do|done|elif|else|esac|export|fi|for|function|if|in|local|readonly|select|then|typeset|until|while)\b"#
+        private let appleScriptKeywordPattern = #"\b(?:tell|end|set|to|of|on|if|then|else|repeat|return|activate|property|script|display|try|error)\b"#
     }
 }
 

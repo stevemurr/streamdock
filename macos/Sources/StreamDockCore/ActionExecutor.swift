@@ -191,6 +191,22 @@ public final class ActionExecutor: @unchecked Sendable {
                 source: action.source,
                 loginShell: loginShellLanguage
             )
+            if language == .appleScript {
+                // AppleScript source cannot be handed to a POSIX shell; run it
+                // through osascript via a temp file like an inline script.
+                let file = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("streamdock-\(UUID().uuidString).applescript")
+                try action.source.write(to: file, atomically: true, encoding: .utf8)
+                defer { try? FileManager.default.removeItem(at: file) }
+                return try runScript(
+                    file: file,
+                    language: language,
+                    arguments: [],
+                    options: action.options,
+                    keyID: keyID,
+                    description: "\(language.displayName) command"
+                )
+            }
             let shell = language == .bash ? "/bin/bash" : "/bin/zsh"
             return try runProcess(
                 executable: shell,
@@ -208,7 +224,7 @@ public final class ActionExecutor: @unchecked Sendable {
                 source: action.source,
                 loginShell: loginShellLanguage
             )
-            let ext = language == .python ? "py" : language.rawValue
+            let ext = Self.temporaryFileExtension(for: language)
             let file = FileManager.default.temporaryDirectory
                 .appendingPathComponent("streamdock-\(UUID().uuidString).\(ext)")
             try action.source.write(to: file, atomically: true, encoding: .utf8)
@@ -244,6 +260,14 @@ public final class ActionExecutor: @unchecked Sendable {
         }
     }
 
+    private static func temporaryFileExtension(for language: ScriptLanguage) -> String {
+        switch language {
+        case .python: "py"
+        case .appleScript: "applescript"
+        case .automatic, .bash, .zsh: language.rawValue
+        }
+    }
+
     private func runScript(
         file: URL,
         language: ScriptLanguage,
@@ -255,6 +279,7 @@ public final class ActionExecutor: @unchecked Sendable {
         let command: String
         switch language {
         case .python: command = "python3"
+        case .appleScript: command = "osascript"
         case .bash: command = "bash"
         case .zsh, .automatic: command = "zsh"
         }

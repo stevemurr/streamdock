@@ -5,6 +5,7 @@ public enum ScriptLanguage: String, Codable, CaseIterable, Identifiable, Sendabl
     case python
     case bash
     case zsh
+    case appleScript
 
     public var id: Self { self }
 
@@ -14,6 +15,7 @@ public enum ScriptLanguage: String, Codable, CaseIterable, Identifiable, Sendabl
         case .python: "Python"
         case .bash: "Bash"
         case .zsh: "Zsh"
+        case .appleScript: "AppleScript"
         }
     }
 }
