@@ -47,6 +47,25 @@ struct ContentView: View {
             SecretsView()
                 .environmentObject(model)
         }
+        .onAppear {
+            // UI tests synthesize real mouse drags, which miss when the saved
+            // window frame is on a secondary display; center on the primary.
+            guard ProcessInfo.processInfo.environment["STREAMDOCK_UI_TESTING"] == "1",
+                  let screen = NSScreen.screens.first else { return }
+            DispatchQueue.main.async {
+                guard let window = NSApp.windows.first(where: \.isVisible) else { return }
+                let size = window.frame.size
+                window.setFrame(
+                    CGRect(
+                        x: screen.frame.midX - size.width / 2,
+                        y: screen.frame.midY - size.height / 2,
+                        width: size.width,
+                        height: size.height
+                    ),
+                    display: true
+                )
+            }
+        }
         .alert(
             "StreamDock",
             isPresented: Binding(
@@ -78,7 +97,6 @@ struct DeviceStatusPill: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(.quaternary, in: Capsule())
         .help(status)
     }
 
@@ -112,24 +130,70 @@ private struct PageSidebar: View {
             .padding(10)
             Divider()
             Form {
-                LabeledContent("Brightness") {
-                    Slider(
-                        value: Binding(
-                            get: { Double(model.configuration.settings.brightness) },
-                            set: {
-                                model.configuration.settings.brightness = Int($0)
-                                model.isDirty = true
-                            }
-                        ),
-                        in: 0...100,
-                        step: 1
-                    )
+                Section("Deck Settings") {
+                    LabeledContent("Brightness") {
+                        Slider(
+                            value: Binding(
+                                get: { Double(model.configuration.settings.brightness) },
+                                set: {
+                                    let brightness = Int($0)
+                                    guard model.configuration.settings.brightness != brightness else { return }
+                                    model.configuration.settings.brightness = brightness
+                                    model.isDirty = true
+                                }
+                            ),
+                            in: 0...100,
+                            step: 1
+                        )
+                    }
+                    Text("\(model.configuration.settings.brightness)%")
+                        .foregroundStyle(.secondary)
+                    Picker("Screen Off", selection: screenOffSelection) {
+                        ForEach(screenOffOptions, id: \.self) { option in
+                            Text(screenOffLabel(for: option)).tag(option)
+                        }
+                    }
+                    .help("Turn the deck displays off after this much inactivity")
+                    .accessibilityIdentifier("screen-off-picker")
                 }
-                Text("\(model.configuration.settings.brightness)%")
-                    .foregroundStyle(.secondary)
             }
             .formStyle(.grouped)
         }
+    }
+
+    private var screenOffSelection: Binding<Double?> {
+        Binding(
+            get: { model.configuration.settings.screenOffAfterSeconds },
+            set: { newValue in
+                guard model.configuration.settings.screenOffAfterSeconds != newValue else { return }
+                model.configuration.settings.screenOffAfterSeconds = newValue
+                model.isDirty = true
+            }
+        )
+    }
+
+    /// The preset intervals, plus whatever custom value a hand-edited
+    /// configuration may carry so the picker never shows an empty selection.
+    private var screenOffOptions: [Double?] {
+        var options: [Double?] = [nil, 60, 300, 600, 1800, 3600]
+        if let current = model.configuration.settings.screenOffAfterSeconds,
+           !options.contains(current) {
+            options.append(current)
+            options.sort { ($0 ?? -1) < ($1 ?? -1) }
+        }
+        return options
+    }
+
+    private func screenOffLabel(for seconds: Double?) -> String {
+        guard let seconds, seconds > 0 else { return "Never" }
+        if seconds < 60 { return "\(Int(seconds)) seconds" }
+        let minutes = seconds / 60
+        if minutes < 60 {
+            let value = Int(minutes.rounded())
+            return value == 1 ? "1 minute" : "\(value) minutes"
+        }
+        let hours = Int((minutes / 60).rounded())
+        return hours == 1 ? "1 hour" : "\(hours) hours"
     }
 }
 
@@ -178,10 +242,12 @@ private struct DeckKeySlot: View {
     @EnvironmentObject private var model: AppModel
     let position: Int
     @State private var isDropTargeted = false
+    @State private var isHovering = false
 
     var body: some View {
         slotButton(for: model.key(at: position))
             .buttonStyle(.plain)
+            .accessibilityIdentifier("deck-slot-\(position)")
             .overlay {
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(
@@ -200,6 +266,26 @@ private struct DeckKeySlot: View {
                         )
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if isHovering, !isDropTargeted, let key = model.key(at: position) {
+                    Button {
+                        model.deleteKey(at: position)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .black.opacity(0.65))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(5)
+                    .help("Delete this key")
+                    .accessibilityLabel(
+                        "Delete \(key.label.isEmpty ? "key \(position + 1)" : key.label)"
+                    )
+                    .accessibilityIdentifier("delete-key-\(position)")
+                }
+            }
+            .onHover { isHovering = $0 }
             .shadow(
                 color: model.selectedPosition == position
                     ? Color.accentColor.opacity(0.35) : .clear,
@@ -265,7 +351,13 @@ struct KeyFaceView: View {
             }
         }
         .aspectRatio(1, contentMode: .fit)
-        .accessibilityLabel(key?.label ?? "Unassigned key \(position + 1)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        guard let key else { return "Unassigned key \(position + 1)" }
+        return key.label.isEmpty ? "Key \(position + 1)" : key.label
     }
 
     private func symbol(for icon: String?) -> String {

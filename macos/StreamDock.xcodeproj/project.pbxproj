@@ -13,7 +13,22 @@
 		B00000000000000000000005 /* SourceEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000005 /* SourceEditorView.swift */; };
 		B00000000000000000000007 /* SecretsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000007 /* SecretsView.swift */; };
 		B00000000000000000000006 /* StreamDockCore in Frameworks */ = {isa = PBXBuildFile; productRef = P00000000000000000000001 /* StreamDockCore */; };
+		B00000000000000000000011 /* DragAndDropUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000011 /* DragAndDropUITests.swift */; };
+		B00000000000000000000012 /* StreamDockUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000013 /* StreamDockUITestCase.swift */; };
+		B00000000000000000000013 /* KeyDeletionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* KeyDeletionUITests.swift */; };
+		B00000000000000000000014 /* DeckSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000015 /* DeckSettingsUITests.swift */; };
+		B00000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CP0000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T00000000000000000000001;
+			remoteInfo = StreamDock;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		F00000000000000000000001 /* StreamDockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDockApp.swift; sourceTree = "<group>"; };
@@ -23,6 +38,12 @@
 		F00000000000000000000005 /* SourceEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceEditorView.swift; sourceTree = "<group>"; };
 		F00000000000000000000007 /* SecretsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsView.swift; sourceTree = "<group>"; };
 		F00000000000000000000006 /* StreamDock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StreamDock.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F00000000000000000000011 /* DragAndDropUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragAndDropUITests.swift; sourceTree = "<group>"; };
+		F00000000000000000000013 /* StreamDockUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDockUITestCase.swift; sourceTree = "<group>"; };
+		F00000000000000000000014 /* KeyDeletionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyDeletionUITests.swift; sourceTree = "<group>"; };
+		F00000000000000000000015 /* DeckSettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckSettingsUITests.swift; sourceTree = "<group>"; };
+		F00000000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		F00000000000000000000012 /* StreamDockUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StreamDockUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +53,12 @@
 			files = (B00000000000000000000006 /* StreamDockCore in Frameworks */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A00000000000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -39,8 +66,22 @@
 			isa = PBXGroup;
 			children = (
 				G00000000000000000000002 /* StreamDockApp */,
+				F00000000000000000000016 /* Assets.xcassets */,
+				G00000000000000000000004 /* StreamDockUITests */,
 				G00000000000000000000003 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		G00000000000000000000004 /* StreamDockUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000013 /* StreamDockUITestCase.swift */,
+				F00000000000000000000011 /* DragAndDropUITests.swift */,
+				F00000000000000000000014 /* KeyDeletionUITests.swift */,
+				F00000000000000000000015 /* DeckSettingsUITests.swift */,
+			);
+			name = StreamDockUITests;
+			path = UITests;
 			sourceTree = "<group>";
 		};
 		G00000000000000000000002 /* StreamDockApp */ = {
@@ -58,7 +99,10 @@
 		};
 		G00000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
-			children = (F00000000000000000000006 /* StreamDock.app */,);
+			children = (
+				F00000000000000000000006 /* StreamDock.app */,
+				F00000000000000000000012 /* StreamDockUITests.xctest */,
+			);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -81,6 +125,23 @@
 			productReference = F00000000000000000000006 /* StreamDock.app */;
 			productType = "com.apple.product-type.application";
 		};
+		T00000000000000000000002 /* StreamDockUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C00000000000000000000004 /* Build configuration list for PBXNativeTarget "StreamDockUITests" */;
+			buildPhases = (
+				A00000000000000000000011 /* Sources */,
+				A00000000000000000000012 /* Frameworks */,
+				A00000000000000000000013 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (
+				D00000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = StreamDockUITests;
+			productName = StreamDockUITests;
+			productReference = F00000000000000000000012 /* StreamDockUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -90,6 +151,11 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					T00000000000000000000002 = {
+						TestTargetID = T00000000000000000000001;
+					};
+				};
 			};
 			buildConfigurationList = C00000000000000000000001 /* Build configuration list for PBXProject "StreamDock" */;
 			compatibilityVersion = "Xcode 15.0";
@@ -101,12 +167,23 @@
 			productRefGroup = G00000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (T00000000000000000000001 /* StreamDock */,);
+			targets = (
+				T00000000000000000000001 /* StreamDock */,
+				T00000000000000000000002 /* StreamDockUITests */,
+			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A00000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000015 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000013 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = ();
@@ -128,7 +205,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A00000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000012 /* StreamDockUITestCase.swift in Sources */,
+				B00000000000000000000011 /* DragAndDropUITests.swift in Sources */,
+				B00000000000000000000013 /* KeyDeletionUITests.swift in Sources */,
+				B00000000000000000000014 /* DeckSettingsUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D00000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T00000000000000000000001 /* StreamDock */;
+			targetProxy = CP0000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C00000000000000000000011 /* Debug */ = {
@@ -156,6 +252,7 @@
 		C00000000000000000000021 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
@@ -176,6 +273,7 @@
 		C00000000000000000000022 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
@@ -192,6 +290,37 @@
 			};
 			name = Release;
 		};
+		C00000000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.2.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevemurr.StreamDockUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = StreamDock;
+			};
+			name = Debug;
+		};
+		C00000000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stevemurr.StreamDockUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = StreamDock;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -204,6 +333,12 @@
 		C00000000000000000000003 /* Build configuration list for PBXNativeTarget "StreamDock" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (C00000000000000000000021 /* Debug */, C00000000000000000000022 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C00000000000000000000004 /* Build configuration list for PBXNativeTarget "StreamDockUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (C00000000000000000000031 /* Debug */, C00000000000000000000032 /* Release */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

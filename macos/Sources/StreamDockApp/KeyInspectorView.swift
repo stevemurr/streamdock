@@ -51,6 +51,14 @@ private struct InspectorForm: View {
                     }
                     ActionEditor(key: $key)
                 }
+
+                Section {
+                    Button("Delete Key", systemImage: "trash", role: .destructive) {
+                        model.deleteSelectedKey()
+                    }
+                    .help("Remove this key from the deck")
+                    .accessibilityIdentifier("inspector-delete-key")
+                }
             }
             .formStyle(.grouped)
 

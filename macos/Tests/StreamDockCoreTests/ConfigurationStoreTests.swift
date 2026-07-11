@@ -3,6 +3,26 @@ import XCTest
 @testable import StreamDockCore
 
 final class ConfigurationStoreTests: XCTestCase {
+    func testScreenOffSettingRoundTripsAndDefaultsToNever() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("config.yaml")
+
+        let store = ConfigurationStore()
+        var configuration = DeckConfiguration()
+        configuration.settings.screenOffAfterSeconds = 300
+        try store.save(configuration, to: url)
+        XCTAssertEqual(try store.load(from: url).settings.screenOffAfterSeconds, 300)
+
+        // Never (nil) stays out of the file and decodes back as nil.
+        configuration.settings.screenOffAfterSeconds = nil
+        try store.save(configuration, to: url)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertFalse(text.contains("screen_off_seconds"))
+        XCTAssertNil(try store.load(from: url).settings.screenOffAfterSeconds)
+    }
+
     func testImportsLegacyYAMLAndWritesTypedSchema() throws {
         let legacy = """
         settings:

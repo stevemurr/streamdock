@@ -30,17 +30,33 @@ final class AppModel: ObservableObject {
     private var terminationObserver: NSObjectProtocol?
 
     init() {
-        do {
-            let initial = try store.loadInitial()
-            configuration = initial.configuration
-            importedFrom = initial.source
-        } catch {
-            configuration = .init()
-            executionError = error.localizedDescription
+        // UI tests point the app at a scratch config and disable everything
+        // that touches shared machine state (HID device, control socket,
+        // Keychain-backed secrets) so runs are hermetic and prompt-free.
+        let environment = ProcessInfo.processInfo.environment
+        let isUITesting = environment["STREAMDOCK_UI_TESTING"] == "1"
+        if let overridePath = environment["STREAMDOCK_CONFIG_PATH"], !overridePath.isEmpty {
+            configurationURL = URL(fileURLWithPath: overridePath)
+            do {
+                configuration = try store.load(from: configurationURL)
+            } catch {
+                configuration = .init()
+                executionError = error.localizedDescription
+            }
+        } else {
+            do {
+                let initial = try store.loadInitial()
+                configuration = initial.configuration
+                importedFrom = initial.source
+            } catch {
+                configuration = .init()
+                executionError = error.localizedDescription
+            }
+            configurationURL = ConfigurationStore.defaultConfigurationURL
         }
-        configurationURL = ConfigurationStore.defaultConfigurationURL
         selectedPageID = configuration.pages.first?.id
         configureEnvironmentFile()
+        guard !isUITesting else { return }
         loadSecrets()
         runtime.onStatusChange = { [weak self] status in self?.deviceStatus = status }
         runtime.onExecutableAction = { [weak self] key in
@@ -77,12 +93,17 @@ final class AppModel: ObservableObject {
                   let pageIndex = configuration.pages.firstIndex(where: { $0.id == pageID }) else { return }
             if let keyIndex = configuration.pages[pageIndex].keys.firstIndex(where: { $0.position == position }) {
                 if let newValue {
+                    // Inspector controls (notably the color picker) echo the
+                    // current value back on appear; only a real change dirties.
+                    guard configuration.pages[pageIndex].keys[keyIndex] != newValue else { return }
                     configuration.pages[pageIndex].keys[keyIndex] = newValue
                 } else {
                     configuration.pages[pageIndex].keys.remove(at: keyIndex)
                 }
             } else if let newValue {
                 configuration.pages[pageIndex].keys.append(newValue)
+            } else {
+                return
             }
             isDirty = true
         }
@@ -143,9 +164,28 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Removes the key at `position` on the selected page. Clears the
+    /// selection when it pointed at the removed key so the inspector shows
+    /// the placeholder instead of recreating a blank key.
+    func deleteKey(at position: Int) {
+        guard let selectedPageID,
+              let pageIndex = configuration.pages.firstIndex(where: { $0.id == selectedPageID }),
+              let keyIndex = configuration.pages[pageIndex].keys.firstIndex(where: { $0.position == position })
+        else { return }
+        configuration.pages[pageIndex].keys.remove(at: keyIndex)
+        isDirty = true
+        if selectedPosition == position { selectedPosition = nil }
+    }
+
+    func deleteSelectedKey() {
+        guard let selectedPosition else { return }
+        deleteKey(at: selectedPosition)
+    }
+
     func updateSelectedPageName(_ name: String) {
         guard let selectedPageID,
-              let index = configuration.pages.firstIndex(where: { $0.id == selectedPageID }) else { return }
+              let index = configuration.pages.firstIndex(where: { $0.id == selectedPageID }),
+              configuration.pages[index].name != name else { return }
         configuration.pages[index].name = name
         isDirty = true
     }

@@ -328,19 +328,24 @@ public struct DeckSettings: Codable, Equatable, Sendable {
     public var clearOnExit: Bool
     public var environmentFile: String?
     public var resourceRoot: String?
+    /// Idle time before the deck displays turn off automatically; nil never
+    /// sleeps. Any hardware key press counts as activity and wakes the deck.
+    public var screenOffAfterSeconds: Double?
 
     public init(
         brightness: Int = 80,
         keepaliveSeconds: Double = 2,
         clearOnExit: Bool = true,
         environmentFile: String? = nil,
-        resourceRoot: String? = nil
+        resourceRoot: String? = nil,
+        screenOffAfterSeconds: Double? = nil
     ) {
         self.brightness = brightness
         self.keepaliveSeconds = keepaliveSeconds
         self.clearOnExit = clearOnExit
         self.environmentFile = environmentFile
         self.resourceRoot = resourceRoot
+        self.screenOffAfterSeconds = screenOffAfterSeconds
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -349,6 +354,7 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         case clearOnExit = "clear_on_exit"
         case environmentFile = "env_file"
         case resourceRoot = "resource_root"
+        case screenOffAfterSeconds = "screen_off_seconds"
     }
 
     public init(from decoder: Decoder) throws {
@@ -358,6 +364,7 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         clearOnExit = try values.decodeIfPresent(Bool.self, forKey: .clearOnExit) ?? true
         environmentFile = try values.decodeIfPresent(String.self, forKey: .environmentFile)
         resourceRoot = try values.decodeIfPresent(String.self, forKey: .resourceRoot)
+        screenOffAfterSeconds = try values.decodeIfPresent(Double.self, forKey: .screenOffAfterSeconds)
     }
 }
 

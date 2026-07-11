@@ -11,6 +11,7 @@ public final class DeckRuntimeController {
     private var timer: Timer?
     private var asleep = false
     private var lastConnectAttempt = Date.distantPast
+    private var lastActivity = Date()
 
     public init(device: StreamDockHIDDevice = .init()) {
         self.device = device
@@ -39,6 +40,7 @@ public final class DeckRuntimeController {
     public func update(configuration: DeckConfiguration) {
         let previousName = activePage?.name
         self.configuration = configuration
+        lastActivity = Date()
         if let previousName,
            let preserved = configuration.pages.firstIndex(where: { $0.name == previousName }) {
             activePageIndex = preserved
@@ -96,7 +98,19 @@ public final class DeckRuntimeController {
         } catch {
             device.disconnect()
             report(error)
+            return
         }
+        autoSleepIfIdle()
+    }
+
+    /// Puts the deck to sleep once it has been idle past the configured
+    /// screen-off interval (`screen_off_seconds`; nil never sleeps).
+    private func autoSleepIfIdle() {
+        guard !asleep,
+              let limit = configuration.settings.screenOffAfterSeconds, limit > 0,
+              Date().timeIntervalSince(lastActivity) >= limit
+        else { return }
+        sleepDeck()
     }
 
     private func connectIfNeeded() {
@@ -106,6 +120,7 @@ public final class DeckRuntimeController {
             try device.connect()
             try device.initialize(brightness: configuration.settings.brightness)
             asleep = false
+            lastActivity = Date()
             try renderActivePage()
         } catch HIDDeviceError.deviceNotFound {
             onStatusChange?("Device not connected · retrying")
@@ -116,6 +131,7 @@ public final class DeckRuntimeController {
     }
 
     private func handle(position: Int, isDown: Bool) {
+        lastActivity = Date()
         if asleep {
             guard isDown else { return }
             do {
