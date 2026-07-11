@@ -21,6 +21,29 @@ final class DeviceProtocolTests: XCTestCase {
         XCTAssertEqual(event?.isDown, true)
     }
 
+    func testBottomButtonsMapToPositionsPastTheGrid() {
+        // ids captured on hardware: left/middle/right under the screen
+        for (index, keyID) in [UInt8(0x25), 0x30, 0x31].enumerated() {
+            var report = Data(repeating: 0, count: 11)
+            report.replaceSubrange(0..<3, with: Data("ACK".utf8))
+            report[9] = keyID
+            report[10] = 1
+            let event = StreamDockProtocol.parseButtonReport(report)
+            XCTAssertEqual(event?.position, 15 + index)
+            XCTAssertEqual(event?.isDown, true)
+        }
+    }
+
+    func testUnknownKeyIDsAreDropped() {
+        for keyID in [UInt8(0), 16, 0x24, 0x32] {
+            var report = Data(repeating: 0, count: 11)
+            report.replaceSubrange(0..<3, with: Data("ACK".utf8))
+            report[9] = keyID
+            report[10] = 1
+            XCTAssertNil(StreamDockProtocol.parseButtonReport(report))
+        }
+    }
+
     func testSlotMapMatchesPhysicalDeck() {
         XCTAssertEqual(
             StreamDockProtocol.positionToSlot,

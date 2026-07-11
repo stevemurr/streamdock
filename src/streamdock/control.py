@@ -203,9 +203,9 @@ def save_config(cfg: Config, path: "str | Path") -> None:
 # ---- paging ------------------------------------------------------------------
 
 def resolve_page(names: "list[str]", current: int, action: "str | None") -> "int | None":
-    """Pure paging decision: map a 'page:next' / 'page:prev' / 'page:<name>'
-    action to a new page index, or None for a no-op (unknown action/name).
-    next/prev wrap around."""
+    """Pure paging decision: map a 'page:next' / 'page:prev' / 'page:first' /
+    'page:<name>' action to a new page index, or None for a no-op (unknown
+    action/name). next/prev wrap around."""
     if not action or not action.startswith("page:") or not names:
         return None
     spec = action[len("page:"):].strip()
@@ -213,9 +213,23 @@ def resolve_page(names: "list[str]", current: int, action: "str | None") -> "int
         return (current + 1) % len(names)
     if spec == "prev":
         return (current - 1) % len(names)
+    if spec == "first":
+        return 0
     if spec in names:
         return names.index(spec)
     return None
+
+
+def bottom_button_defaults(layout) -> "dict[int, KeyConfig]":
+    """Built-in paging for the three screenless buttons under the screen:
+    left/middle/right -> previous page / first page / next page. A configured
+    key at the same position overrides the built-in."""
+    if len(layout.extra_button_key_ids) != 3:
+        return {}
+    base = len(layout.position_to_slot)
+    actions = ("page:prev", "page:first", "page:next")
+    return {base + i: KeyConfig(position=base + i, action=a)
+            for i, a in enumerate(actions)}
 
 
 def preserve_page_index(old_pages: "list[Page]", old_index: int,
@@ -440,6 +454,7 @@ class Runner:
         with StreamDock(self.vid, self.pid) as sd:
             sd.initialize()
             sd.set_brightness(self.cfg.brightness)
+            bottom_defaults = bottom_button_defaults(sd.layout)
             self.render_all(sd)
             self.status = f"running — {sd.firmware_version()}, {len(self._rendered)} keys"
             self._log(f"control loop running: {len(self._rendered)} keys drawn, "
@@ -458,7 +473,7 @@ class Runner:
                     if ev is None:
                         continue
                     pos, down = ev
-                    key = self.by_pos.get(pos)
+                    key = self.by_pos.get(pos) or bottom_defaults.get(pos)
                     asleep, effects = plan_event(asleep, key, down, pos in self._rendered)
                     for eff in effects:
                         if eff == "wake":

@@ -22,6 +22,14 @@ The app imports the first existing configuration it finds under
 ~/Library/Application Support/StreamDock/config.yaml
 ```
 
+## Hardware paging buttons
+
+The three screenless buttons under the screen (key ids `0x25`/`0x30`/`0x31`,
+positions 15/16/17) are bound to paging by default: **left = previous page,
+middle = first page, right = next page**. A key configured at one of those
+positions in the YAML overrides the built-in binding; the editor grid only
+shows the 15 LCD keys.
+
 ## Environment secrets
 
 Keys, commands, and scripts frequently need tokens (`HA_TOKEN`, `OPENAI_API_KEY`,

@@ -142,7 +142,11 @@ public final class DeckRuntimeController {
             } catch { report(error) }
             return
         }
-        guard isDown, let key = activePage?.keys.first(where: { $0.position == position }) else { return }
+        guard isDown else { return }
+        guard let key = activePage?.keys.first(where: { $0.position == position }) else {
+            if let target = Self.bottomButtonTargets[position] { switchPage(target) }
+            return
+        }
         switch key.trigger {
         case .sleepDeck:
             sleepDeck()
@@ -155,7 +159,14 @@ public final class DeckRuntimeController {
         }
     }
 
-    /// Switches to a page by name (case-insensitive) or to "next"/"prev".
+    /// Built-in bindings for the screenless bottom buttons (left/middle/right
+    /// -> previous page / first page / next page). A configured key at the
+    /// same position overrides these.
+    private static let bottomButtonTargets: [Int: String] = Dictionary(
+        uniqueKeysWithValues: zip(StreamDockProtocol.bottomButtonPositions, ["prev", "first", "next"])
+    )
+
+    /// Switches to a page by name (case-insensitive) or to "next"/"prev"/"first".
     /// Works without a connected device — the page change simply takes effect
     /// on screen once the deck is connected and awake.
     @discardableResult
@@ -166,6 +177,8 @@ public final class DeckRuntimeController {
             activePageIndex = (activePageIndex + 1) % count
         } else if target == "prev" {
             activePageIndex = (activePageIndex - 1 + count) % count
+        } else if target == "first" {
+            activePageIndex = 0
         } else if let index = configuration.pages.firstIndex(where: {
             $0.name.caseInsensitiveCompare(target) == .orderedSame
         }) {

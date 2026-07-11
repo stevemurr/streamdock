@@ -4,6 +4,7 @@ from streamdock.control import (
     Config,
     KeyConfig,
     Page,
+    bottom_button_defaults,
     load_config,
     plan_event,
     preserve_page_index,
@@ -11,6 +12,7 @@ from streamdock.control import (
     resolve_page,
     save_config,
 )
+from streamdock.layout import DEFAULT_LAYOUT
 
 NAMES = ["main", "media", "dev"]
 
@@ -35,8 +37,26 @@ def test_goto_page_by_name():
     assert resolve_page(NAMES, 2, "page:main") == 0
 
 
+def test_first_jumps_home_from_anywhere():
+    assert resolve_page(NAMES, 2, "page:first") == 0
+    assert resolve_page(NAMES, 0, "page:first") == 0
+
+
 def test_unknown_page_name_is_noop():
     assert resolve_page(NAMES, 0, "page:nope") is None
+
+
+# ---- bottom hardware buttons -------------------------------------------------
+def test_bottom_buttons_default_to_paging():
+    defaults = bottom_button_defaults(DEFAULT_LAYOUT)
+    assert {p: k.action for p, k in defaults.items()} == {
+        15: "page:prev", 16: "page:first", 17: "page:next",
+    }
+
+
+def test_bottom_button_press_pages_without_flash():
+    key = bottom_button_defaults(DEFAULT_LAYOUT)[17]
+    assert plan_event(False, key, down=True, has_render=False) == (False, ["page"])
 
 
 def test_non_page_actions_and_empty_deck_are_noops():

@@ -42,7 +42,7 @@ From a shell command or inline Bash/Zsh:
 ```bash
 streamdock press 4                    # press position 4 on the active page
 streamdock press "Amber" --page main  # press by label, on a specific page
-streamdock page media                 # switch page (also: next / prev)
+streamdock page media                 # switch page (also: next / prev / first)
 streamdock list                       # every key: page, position, label
 streamdock status                     # the app's device status line
 ```
@@ -157,7 +157,8 @@ pages:
          command: "curl -s -X POST $HA_URL -H \"Authorization: Bearer $HA_TOKEN\" ..."}
       # or supply your own image; overrides icon/label
       - {position: 3, image: icons/custom.png, command: "..."}
-      # action: switch pages — "page:next" / "page:prev" (wrap) or "page:<name>"
+      # action: switch pages — "page:next" / "page:prev" (wrap), "page:first",
+      # or "page:<name>"
       - {position: 14, label: Media, icon: cycle, action: 'page:next'}
 
   - name: media
@@ -169,8 +170,12 @@ pages:
 
 Per key: `label`, `icon`, `color`, `image`, `level` control the look; `app`
 (open a macOS app), `command` (raw shell), and `action` (`sleep`,
-`page:next`/`page:prev`/`page:<name>`) control what a press does. Pressing a
-page key re-renders the whole deck with that page's keys.
+`page:next`/`page:prev`/`page:first`/`page:<name>`) control what a press does.
+Pressing a page key re-renders the whole deck with that page's keys.
+
+The three **hardware buttons under the screen** page by default — left =
+previous page, middle = first page, right = next page. Configure a key at
+position `15`, `16`, or `17` to override one of them.
 
 The loop also **hot-reloads the config**: edit and save the file and the deck
 re-renders within ~2s — no restart. A half-written or invalid file is ignored
@@ -258,18 +263,26 @@ Lower-level helpers (`set_slot_color`, `set_slot_image`, `read_key`, `set_mode`,
 
 ## Physical layout (this unit)
 
-**15 keys** in a 3×5 grid, all with LCD screens:
+**15 keys** in a 3×5 grid, all with LCD screens, plus **3 screenless buttons**
+below the screen:
 
 ```
  0   1   2   3   4      key_id 1-5,   image slots 11-15
  5   6   7   8   9      key_id 6-10,  image slots 6-10
 10  11  12  13  14      key_id 11-15, image slots 1-5
+    15  16  17          key_id 0x25 / 0x30 / 0x31, no screens
 ```
 
-- Button `key_id`s are already reading-order (`key_id = position + 1`); image
+- Grid `key_id`s are already reading-order (`key_id = position + 1`); image
   *slots* are not, so the driver's `Layout.position_to_slot` handles the remap.
-- The `Layout` type still supports screenless keys (`slot = None`) for other
-  models; this unit just happens to have a screen on every key.
+- The three bottom buttons report vendor key ids `0x25`/`0x30`/`0x31`
+  (left→right, captured on hardware) and map to positions **15/16/17**. Both
+  runtimes bind them to paging by default — **left = previous page, middle =
+  first page, right = next page** — and a configured key at one of those
+  positions overrides the default (they can run commands, just never draw).
+- The `Layout` type also supports screenless keys inside the grid
+  (`slot = None`) for other models; this unit just happens to have a screen on
+  every grid key.
 
 Other models require a `DeviceProfile` containing both their `Layout` and exact
 key-image size; pass it as `StreamDock(..., profile=profile)`. Unknown USB IDs
@@ -313,6 +326,9 @@ to Python and adds the macOS transport handling + layout calibration:
 
 - [4ndv/mirajazz](https://github.com/4ndv/mirajazz) — Rust lib; source of the
   command framing, the mode enum, and protocol-v3 details.
+- [ibanks42/opendeck-m18](https://github.com/ibanks42/opendeck-m18) — OpenDeck
+  plugin for the M18 family; independently confirms the bottom-button key ids
+  `0x25`/`0x30`/`0x31` (left/middle/right).
 - [rigor789/mirabox-streamdock-node](https://github.com/rigor789/mirabox-streamdock-node)
 - [Uriziel01/Ajazz-AKP153-reverse-engineering](https://github.com/Uriziel01/Ajazz-AKP153-reverse-engineering)
 

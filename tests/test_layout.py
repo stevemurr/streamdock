@@ -4,7 +4,7 @@ from streamdock.layout import DEFAULT_LAYOUT, HOTSPOTEK_5548_1000, Layout
 
 def test_default_is_the_calibrated_unit():
     assert DEFAULT_LAYOUT is HOTSPOTEK_5548_1000
-    assert DEFAULT_LAYOUT.key_count == 15
+    assert DEFAULT_LAYOUT.key_count == 18     # 15 LCD keys + 3 bottom buttons
 
 
 def test_reading_order_key_id_roundtrip():
@@ -16,9 +16,19 @@ def test_reading_order_key_id_roundtrip():
     assert lay.position_to_key_id(0) == 1
 
 
-def test_every_key_has_a_screen():
+def test_grid_keys_have_screens_bottom_buttons_do_not():
     lay = DEFAULT_LAYOUT
-    assert all(lay.has_screen(p) for p in range(lay.key_count))   # all 15 are LCD
+    assert all(lay.has_screen(p) for p in range(15))            # all 15 grid keys are LCD
+    assert not any(lay.has_screen(p) for p in range(15, 18))    # bottom buttons are not
+    assert [lay.slot(p) for p in range(15, 18)] == [None, None, None]
+
+
+def test_bottom_button_key_ids_map_past_the_grid():
+    lay = DEFAULT_LAYOUT
+    # ids captured on hardware: left/middle/right under the screen
+    assert lay.key_id_to_position(0x25) == 15
+    assert lay.key_id_to_position(0x30) == 16
+    assert lay.key_id_to_position(0x31) == 17
 
 
 def test_slot_mapping_values():

@@ -137,7 +137,7 @@ public enum ControlCLIError: LocalizedError, Equatable {
 public enum ControlCLI {
     public static let usageText = """
     usage: streamdock press <key> [--page NAME]   press a key by position or label
-           streamdock page <name|next|prev>       switch the active page
+           streamdock page <name|next|prev|first>  switch the active page
            streamdock list                        list every key (page, position, label)
            streamdock status                      show the device status line
     """

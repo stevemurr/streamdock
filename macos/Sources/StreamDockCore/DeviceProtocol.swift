@@ -8,6 +8,15 @@ public enum StreamDockProtocol {
     public static let keyPixelSize = 64
     public static let positionToSlot = [11, 12, 13, 14, 15, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5]
 
+    /// Key ids of the three screenless hardware buttons under the screen,
+    /// left to right (captured on hardware). They map to positions 15/16/17,
+    /// continuing reading order past the LCD grid.
+    public static let bottomButtonKeyIDs: [UInt8] = [0x25, 0x30, 0x31]
+
+    public static var bottomButtonPositions: Range<Int> {
+        positionToSlot.count..<(positionToSlot.count + bottomButtonKeyIDs.count)
+    }
+
     private static let commandPrefix = Data([0x43, 0x52, 0x54, 0x00, 0x00])
 
     public static func command(_ payload: Data, includeReportID: Bool = true) -> Data {
@@ -47,8 +56,13 @@ public enum StreamDockProtocol {
         guard data.count >= 11,
               data[0] == 0x41, data[1] == 0x43, data[2] == 0x4b else { return nil }
         let keyID = Int(data[9])
-        guard keyID > 0 && keyID <= positionToSlot.count else { return nil }
-        return (keyID - 1, data[10] != 0)
+        if keyID > 0 && keyID <= positionToSlot.count {
+            return (keyID - 1, data[10] != 0)
+        }
+        if let index = bottomButtonKeyIDs.firstIndex(of: data[9]) {
+            return (positionToSlot.count + index, data[10] != 0)
+        }
+        return nil
     }
 
     private static func packet(_ payload: Data, includeReportID: Bool) -> Data {
