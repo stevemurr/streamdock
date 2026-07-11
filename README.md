@@ -1,10 +1,45 @@
-# streamdock
+<div align="center">
 
-A native macOS editor/runtime plus a userspace **Python driver + CLI** for the
-off-brand Elgato-Stream-Deck-style macropad
-that enumerates over USB as **`HOTSPOTEKUSB HID DEMO`** (`0x5548:0x1000`) — one of
-the MiraBox / Ajazz "Stream Dock" clones. Talks to the device directly, no vendor
-software required. Built and verified on macOS (Apple Silicon).
+# StreamDock
+
+**A native macOS editor and runtime for MiraBox / Ajazz / HOTSPOTEK
+"Stream Dock" macropads — no vendor software required.**
+
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-native-orange?logo=swift)
+![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776ab?logo=python&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+
+<img src="docs/streamdock-app.png" alt="The StreamDock editor: deck grid, page list, and key inspector" width="880">
+
+</div>
+
+StreamDock talks directly to the Elgato-Stream-Deck-style macropad that
+enumerates over USB as **`HOTSPOTEKUSB HID DEMO`** (`0x5548:0x1000`, sold as
+VSD Inside M18 and relatives), using a community-reverse-engineered wire
+protocol. A SwiftUI app is the primary editor and runtime; a userspace
+**Python driver + CLI** covers diagnostics and headless use. Built and
+verified on macOS (Apple Silicon).
+
+## Highlights
+
+- **Native editor** — 3×5 deck grid with drag-and-drop, named pages, and a
+  key inspector: icons, colors, images, meter levels, live device preview.
+- **Typed actions** — open apps, run shell commands, inline
+  Python/Bash/Zsh/AppleScript with syntax highlighting and language
+  detection, script files, page switches, deck sleep. Test-run any action
+  and capture its output without touching the device.
+- **Hardware paging** — the three buttons under the screen page
+  previous / home / next out of the box.
+- **Macros (key references)** — any key's script can press other keys and
+  switch pages through a local control socket, `streamdock` helper CLI, and
+  Python bridge, with loop protection.
+- **Secrets** — AES-GCM-encrypted environment store backed by the login
+  Keychain; commands reference `$TOKEN`, configs stay clean.
+- **Runtime** — menu-bar app, launch-at-login, keep-alive, auto reconnect,
+  idle screen-off, config hot-reload.
+
+## Quick start (Python CLI)
 
 ```bash
 uv run streamdock info
@@ -15,11 +50,10 @@ uv run streamdock watch                   # stream button presses
 
 ## Native macOS app
 
-The primary editor is now a macOS 14+ SwiftUI application under
-[`macos/`](macos/). It provides a native 3×5 deck editor, named pages, typed
-actions, app and script pickers, inline Python/Bash/Zsh editing with automatic
-language detection and syntax highlighting, per-action working directories,
-captured output, a menu-bar runtime, launch-at-login, and a native IOHID driver.
+The primary editor is a macOS 14+ SwiftUI application under
+[`macos/`](macos/). It provides the native deck editor, typed actions, app and
+script pickers, per-action working directories, captured output, a menu-bar
+runtime, launch-at-login, and a native IOHID driver.
 
 Open `macos/StreamDock.xcodeproj` in the full Xcode application and run the
 `StreamDock` scheme on **My Mac**. Existing YAML and legacy TOML configurations
