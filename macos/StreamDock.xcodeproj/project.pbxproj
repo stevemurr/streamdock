@@ -18,6 +18,7 @@
 		B00000000000000000000013 /* KeyDeletionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* KeyDeletionUITests.swift */; };
 		B00000000000000000000014 /* DeckSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000015 /* DeckSettingsUITests.swift */; };
 		B00000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Assets.xcassets */; };
+		B00000000000000000000016 /* StreamDock.icns in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* StreamDock.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,7 @@
 		F00000000000000000000014 /* KeyDeletionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyDeletionUITests.swift; sourceTree = "<group>"; };
 		F00000000000000000000015 /* DeckSettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckSettingsUITests.swift; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		F00000000000000000000017 /* StreamDock.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/StreamDock.icns; sourceTree = "<group>"; };
 		F00000000000000000000012 /* StreamDockUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StreamDockUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -67,6 +69,7 @@
 			children = (
 				G00000000000000000000002 /* StreamDockApp */,
 				F00000000000000000000016 /* Assets.xcassets */,
+				F00000000000000000000017 /* StreamDock.icns */,
 				G00000000000000000000004 /* StreamDockUITests */,
 				G00000000000000000000003 /* Products */,
 			);
@@ -180,6 +183,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B00000000000000000000015 /* Assets.xcassets in Resources */,
+				B00000000000000000000016 /* StreamDock.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,15 +256,12 @@
 		C00000000000000000000021 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = StreamDock;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.2.0;
 				ONLY_ACTIVE_ARCH = YES;
@@ -273,15 +274,12 @@
 		C00000000000000000000022 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = StreamDock;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stevemurr.StreamDock;

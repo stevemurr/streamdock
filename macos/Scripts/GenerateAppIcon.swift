@@ -1,5 +1,6 @@
-// Draws the StreamDock application icon and writes every size the asset
-// catalog needs into Resources/Assets.xcassets/AppIcon.appiconset.
+// Draws the StreamDock application icon, writes every size the asset catalog
+// needs, and packages a full-resolution Resources/StreamDock.icns for macOS
+// services such as Spotlight and Launch Services.
 //
 // Regenerate after design tweaks with:
 //   DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
@@ -194,6 +195,9 @@ let outputDirectory = scriptURL
     .deletingLastPathComponent()
     .appendingPathComponent("Resources/Assets.xcassets/AppIcon.appiconset", isDirectory: true)
 try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+let resourcesDirectory = outputDirectory
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
 
 // Master render at 1024, then high-quality downscales for the smaller sizes.
 let master = bitmap(pixels: 1024)
@@ -221,4 +225,44 @@ for pixels in [16, 32, 64, 128, 256, 512] {
     try write(rep, to: outputDirectory.appendingPathComponent("icon_\(pixels).png"))
 }
 
-print("Wrote icon set to \(outputDirectory.path)")
+// Build the standalone icon explicitly. Xcode's asset-catalog compatibility
+// icon can omit the 512- and 1024-pixel representations, which causes
+// Spotlight to fall back to the generic application icon on some macOS
+// versions.
+let iconsetDirectory = FileManager.default.temporaryDirectory
+    .appendingPathComponent("StreamDock-\(UUID().uuidString).iconset", isDirectory: true)
+try FileManager.default.createDirectory(at: iconsetDirectory, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: iconsetDirectory) }
+
+let iconsetFiles = [
+    "icon_16x16.png": "icon_16.png",
+    "icon_16x16@2x.png": "icon_32.png",
+    "icon_32x32.png": "icon_32.png",
+    "icon_32x32@2x.png": "icon_64.png",
+    "icon_128x128.png": "icon_128.png",
+    "icon_128x128@2x.png": "icon_256.png",
+    "icon_256x256.png": "icon_256.png",
+    "icon_256x256@2x.png": "icon_512.png",
+    "icon_512x512.png": "icon_512.png",
+    "icon_512x512@2x.png": "icon_1024.png",
+]
+
+for (iconsetName, sourceName) in iconsetFiles {
+    try FileManager.default.copyItem(
+        at: outputDirectory.appendingPathComponent(sourceName),
+        to: iconsetDirectory.appendingPathComponent(iconsetName)
+    )
+}
+
+let icnsURL = resourcesDirectory.appendingPathComponent("StreamDock.icns")
+let iconutil = Process()
+iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
+iconutil.arguments = ["--convert", "icns", "--output", icnsURL.path, iconsetDirectory.path]
+try iconutil.run()
+iconutil.waitUntilExit()
+guard iconutil.terminationStatus == 0 else {
+    fatalError("iconutil failed with status \(iconutil.terminationStatus)")
+}
+
+print("Wrote icon sources to \(outputDirectory.path)")
+print("Wrote application icon to \(icnsURL.path)")

@@ -39,28 +39,59 @@ verified on macOS (Apple Silicon).
 - **Runtime** — menu-bar app, launch-at-login, keep-alive, auto reconnect,
   idle screen-off, config hot-reload.
 
-## Quick start (Python CLI)
+## Quick start: build the native macOS app
+
+The SwiftUI app is the primary way to use StreamDock. It requires macOS 14 or
+newer and the full Xcode application; the Python environment and `hidapi` are
+not required for the native app.
+
+From a clone of this repository, open the project:
 
 ```bash
+open macos/StreamDock.xcodeproj
+```
+
+In Xcode, select the **StreamDock** scheme and **My Mac**, then press **Run**
+(`Cmd-R`). The app provides the deck editor, typed actions, app and script
+pickers, captured command output, menu-bar runtime, launch-at-login, and a
+native IOHID driver.
+
+To build a Release app and install it in `/Applications` from the command line:
+
+```bash
+xcodebuild \
+  -project macos/StreamDock.xcodeproj \
+  -scheme StreamDock \
+  -configuration Release \
+  -derivedDataPath .build/xcode \
+  build
+
+ditto .build/xcode/Build/Products/Release/StreamDock.app \
+  /Applications/StreamDock.app
+open /Applications/StreamDock.app
+```
+
+On first launch, StreamDock imports the first existing YAML or legacy TOML
+configuration it finds under `~/.config/streamdock/`. It then stores the native
+configuration at `~/Library/Application Support/StreamDock/config.yaml`.
+
+See [`macos/README.md`](macos/README.md) for native architecture and
+verification details.
+
+## Python CLI (optional)
+
+The Python driver and CLI remain useful for hardware diagnostics, one-shot
+commands, and headless operation:
+
+```bash
+uv sync
 uv run streamdock info
 uv run streamdock color 0 '#00c800'      # top-left key green
 uv run streamdock brightness 80
-uv run streamdock watch                   # stream button presses
+uv run streamdock watch                  # stream button presses
 ```
 
-## Native macOS app
-
-The primary editor is a macOS 14+ SwiftUI application under
-[`macos/`](macos/). It provides the native deck editor, typed actions, app and
-script pickers, per-action working directories, captured output, a menu-bar
-runtime, launch-at-login, and a native IOHID driver.
-
-Open `macos/StreamDock.xcodeproj` in the full Xcode application and run the
-`StreamDock` scheme on **My Mac**. Existing YAML and legacy TOML configurations
-under `~/.config/streamdock/` are imported on first launch. See
-[`macos/README.md`](macos/README.md) for build and verification details.
-
-The Python CLI remains useful for diagnostics and headless operation. The old
+The Python CLI requires the separate `hidapi` setup described below. The old
 browser-based editor has been removed.
 
 ## Key references (macros)
@@ -114,7 +145,7 @@ Chained presses carry that depth counter, and the app refuses presses at depth
 **8** with `press depth limit reached (possible macro loop)` — so an accidental
 A→B→A cycle fizzles out instead of forking forever.
 
-## Install
+## Python CLI installation
 
 Needs the native **hidapi** library (the Python `hidapi` binding links against it):
 
