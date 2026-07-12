@@ -24,7 +24,7 @@ struct StreamDockApplication: App {
         Settings {
             SettingsView()
                 .environmentObject(model)
-                .frame(width: 520, height: 280)
+                .frame(width: 560, height: 420)
         }
     }
 }
@@ -58,30 +58,103 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Toggle("Launch StreamDock at login", isOn: $settings.launchAtLogin)
-                .onChange(of: settings.launchAtLogin) { _, enabled in
-                    do {
-                        if enabled {
-                            try SMAppService.mainApp.register()
-                        } else {
-                            try SMAppService.mainApp.unregister()
-                        }
-                    } catch {
-                        model.present(error)
-                        settings.launchAtLogin = SMAppService.mainApp.status == .enabled
+            Section("Deck Settings") {
+                LabeledContent("Brightness") {
+                    HStack {
+                        Slider(value: brightness, in: 0...100, step: 1)
+                            .frame(width: 220)
+                        Text("\(model.configuration.settings.brightness)%")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 42, alignment: .trailing)
                     }
                 }
-            LabeledContent("Configuration") {
-                Text(model.configurationURL.path)
-                    .textSelection(.enabled)
-                    .foregroundStyle(.secondary)
+                Picker("Screen Off", selection: screenOffSelection) {
+                    ForEach(screenOffOptions, id: \.self) { option in
+                        Text(screenOffLabel(for: option)).tag(option)
+                    }
+                }
+                .help("Turn the deck displays off after this much inactivity")
+                .accessibilityIdentifier("screen-off-picker")
+
+                Button("Save Configuration") { model.save() }
+                    .disabled(!model.isDirty)
+                    .accessibilityIdentifier("settings-save-button")
             }
-            Button("Refresh Login-Shell Environment") {
-                model.refreshExecutionEnvironment()
+
+            Section("Application") {
+                Toggle("Launch StreamDock at login", isOn: $settings.launchAtLogin)
+                    .onChange(of: settings.launchAtLogin) { _, enabled in
+                        do {
+                            if enabled {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                        } catch {
+                            model.present(error)
+                            settings.launchAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+                LabeledContent("Configuration") {
+                    Text(model.configurationURL.path)
+                        .textSelection(.enabled)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Refresh Login-Shell Environment") {
+                    model.refreshExecutionEnvironment()
+                }
             }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private var brightness: Binding<Double> {
+        Binding(
+            get: { Double(model.configuration.settings.brightness) },
+            set: {
+                let brightness = Int($0)
+                guard model.configuration.settings.brightness != brightness else { return }
+                model.configuration.settings.brightness = brightness
+                model.isDirty = true
+            }
+        )
+    }
+
+    private var screenOffSelection: Binding<Double?> {
+        Binding(
+            get: { model.configuration.settings.screenOffAfterSeconds },
+            set: { newValue in
+                guard model.configuration.settings.screenOffAfterSeconds != newValue else { return }
+                model.configuration.settings.screenOffAfterSeconds = newValue
+                model.isDirty = true
+            }
+        )
+    }
+
+    /// The preset intervals, plus whatever custom value a hand-edited
+    /// configuration may carry so the picker never shows an empty selection.
+    private var screenOffOptions: [Double?] {
+        var options: [Double?] = [nil, 60, 300, 600, 1800, 3600]
+        if let current = model.configuration.settings.screenOffAfterSeconds,
+           !options.contains(current) {
+            options.append(current)
+            options.sort { ($0 ?? -1) < ($1 ?? -1) }
+        }
+        return options
+    }
+
+    private func screenOffLabel(for seconds: Double?) -> String {
+        guard let seconds, seconds > 0 else { return "Never" }
+        if seconds < 60 { return "\(Int(seconds)) seconds" }
+        let minutes = seconds / 60
+        if minutes < 60 {
+            let value = Int(minutes.rounded())
+            return value == 1 ? "1 minute" : "\(value) minutes"
+        }
+        let hours = Int((minutes / 60).rounded())
+        return hours == 1 ? "1 hour" : "\(hours) hours"
     }
 }
 

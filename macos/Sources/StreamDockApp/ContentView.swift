@@ -128,72 +128,7 @@ private struct PageSidebar: View {
             }
             .buttonStyle(.borderless)
             .padding(10)
-            Divider()
-            Form {
-                Section("Deck Settings") {
-                    LabeledContent("Brightness") {
-                        Slider(
-                            value: Binding(
-                                get: { Double(model.configuration.settings.brightness) },
-                                set: {
-                                    let brightness = Int($0)
-                                    guard model.configuration.settings.brightness != brightness else { return }
-                                    model.configuration.settings.brightness = brightness
-                                    model.isDirty = true
-                                }
-                            ),
-                            in: 0...100,
-                            step: 1
-                        )
-                    }
-                    Text("\(model.configuration.settings.brightness)%")
-                        .foregroundStyle(.secondary)
-                    Picker("Screen Off", selection: screenOffSelection) {
-                        ForEach(screenOffOptions, id: \.self) { option in
-                            Text(screenOffLabel(for: option)).tag(option)
-                        }
-                    }
-                    .help("Turn the deck displays off after this much inactivity")
-                    .accessibilityIdentifier("screen-off-picker")
-                }
-            }
-            .formStyle(.grouped)
         }
-    }
-
-    private var screenOffSelection: Binding<Double?> {
-        Binding(
-            get: { model.configuration.settings.screenOffAfterSeconds },
-            set: { newValue in
-                guard model.configuration.settings.screenOffAfterSeconds != newValue else { return }
-                model.configuration.settings.screenOffAfterSeconds = newValue
-                model.isDirty = true
-            }
-        )
-    }
-
-    /// The preset intervals, plus whatever custom value a hand-edited
-    /// configuration may carry so the picker never shows an empty selection.
-    private var screenOffOptions: [Double?] {
-        var options: [Double?] = [nil, 60, 300, 600, 1800, 3600]
-        if let current = model.configuration.settings.screenOffAfterSeconds,
-           !options.contains(current) {
-            options.append(current)
-            options.sort { ($0 ?? -1) < ($1 ?? -1) }
-        }
-        return options
-    }
-
-    private func screenOffLabel(for seconds: Double?) -> String {
-        guard let seconds, seconds > 0 else { return "Never" }
-        if seconds < 60 { return "\(Int(seconds)) seconds" }
-        let minutes = seconds / 60
-        if minutes < 60 {
-            let value = Int(minutes.rounded())
-            return value == 1 ? "1 minute" : "\(value) minutes"
-        }
-        let hours = Int((minutes / 60).rounded())
-        return hours == 1 ? "1 hour" : "\(hours) hours"
     }
 }
 
