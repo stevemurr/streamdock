@@ -1,5 +1,6 @@
 @preconcurrency import AppKit
 @preconcurrency import Foundation
+import Darwin
 
 public struct ExecutionResult: Equatable, Sendable {
     public var startedAt: Date
@@ -99,9 +100,12 @@ public final class ActionExecutor: @unchecked Sendable {
 
     private let lock = NSLock()
     private var running: [UUID: ProcessBox] = [:]
+    private var pendingStarts: Set<UUID> = []
+    private var pendingCancellation: Set<UUID> = []
     private var _controlSocketPath: String?
     private var _toolDirectory: String?
     private var _pythonModuleDirectory: String?
+    private let managedProcessDirectory: URL
 
     /// Path of the app's control socket, exported to actions as `STREAMDOCK_SOCKET`.
     public var controlSocketPath: String? {
@@ -123,10 +127,13 @@ public final class ActionExecutor: @unchecked Sendable {
 
     public init(
         loginShellPath: String = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
-        baseEnvironment: [String: String]? = nil
+        baseEnvironment: [String: String]? = nil,
+        managedProcessDirectory: URL = ConfigurationStore.applicationSupportURL
+            .appendingPathComponent("managed-processes", isDirectory: true)
     ) {
         self.loginShellPath = loginShellPath
         self.baseEnvironment = baseEnvironment ?? Self.captureLoginEnvironment(shellPath: loginShellPath)
+        self.managedProcessDirectory = managedProcessDirectory
     }
 
     public func refreshEnvironment() {
@@ -177,6 +184,13 @@ public final class ActionExecutor: @unchecked Sendable {
         if case let .launchApplication(reference) = trigger {
             return try await MainActor.run { try self.launchApplication(reference) }
         }
+        _ = lock.withLock { pendingStarts.insert(keyID) }
+        defer {
+            lock.withLock {
+                pendingStarts.remove(keyID)
+                pendingCancellation.remove(keyID)
+            }
+        }
         return try await Task.detached(priority: .userInitiated) {
             try self.executeBlocking(trigger, keyID: keyID, context: context)
         }.value
@@ -185,8 +199,36 @@ public final class ActionExecutor: @unchecked Sendable {
     public func cancel(keyID: UUID) {
         lock.lock()
         let process = running[keyID]?.process
+        if process == nil, pendingStarts.contains(keyID) { pendingCancellation.insert(keyID) }
         lock.unlock()
-        process?.terminate()
+        if let process, process.isRunning { process.terminate() }
+    }
+
+    public func cancelAll() {
+        lock.lock()
+        let processes = running.values.map(\.process)
+        lock.unlock()
+        processes.filter(\.isRunning).forEach { $0.terminate() }
+    }
+
+    /// Stops Caffeinate children recorded by an earlier StreamDock process.
+    /// A normal exit removes these files; finding one at launch means the app
+    /// died before it could terminate its child. The command check prevents a
+    /// recycled PID from terminating an unrelated process.
+    public func cleanupStaleManagedProcesses() {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: managedProcessDirectory,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for file in files where file.lastPathComponent.hasPrefix("caffeinate-")
+            && file.pathExtension == "pid" {
+            defer { try? FileManager.default.removeItem(at: file) }
+            guard let text = try? String(contentsOf: file, encoding: .utf8),
+                  let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  Self.commandLine(for: pid).hasPrefix("/usr/bin/caffeinate ")
+            else { continue }
+            _ = Darwin.kill(pid, SIGTERM)
+        }
     }
 
     public static func captureLoginEnvironment(shellPath: String) -> [String: String] {
@@ -309,6 +351,22 @@ public final class ActionExecutor: @unchecked Sendable {
                 context: context,
                 description: file.lastPathComponent
             )
+        case let .caffeinate(action):
+            var arguments: [String] = []
+            if action.preventIdleSystemSleep { arguments.append("-i") }
+            if action.preventDisplaySleep { arguments.append("-d") }
+            if arguments.isEmpty { arguments.append("-i") }
+            let pidFile = managedProcessDirectory
+                .appendingPathComponent("caffeinate-\(keyID.uuidString).pid")
+            return try runProcess(
+                executable: "/usr/bin/caffeinate",
+                arguments: arguments,
+                options: action.options,
+                keyID: keyID,
+                context: context,
+                description: "Keep Mac Awake",
+                managedPIDFile: pidFile
+            )
         }
     }
 
@@ -389,13 +447,9 @@ public final class ActionExecutor: @unchecked Sendable {
         options: ExecutionOptions,
         keyID: UUID,
         context: KeyExecutionContext? = nil,
-        description: String
+        description: String,
+        managedPIDFile: URL? = nil
     ) throws -> ExecutionResult {
-        lock.lock()
-        let alreadyRunning = running[keyID] != nil
-        lock.unlock()
-        if alreadyRunning && !options.allowConcurrent { throw ActionExecutionError.alreadyRunning }
-
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
@@ -445,12 +499,21 @@ public final class ActionExecutor: @unchecked Sendable {
 
         let box = ProcessBox(process)
         lock.lock()
+        if running[keyID] != nil && !options.allowConcurrent {
+            lock.unlock()
+            throw ActionExecutionError.alreadyRunning
+        }
         running[keyID] = box
+        pendingStarts.remove(keyID)
+        let shouldCancel = pendingCancellation.remove(keyID) != nil
         lock.unlock()
         defer {
             lock.lock()
             running[keyID] = nil
             lock.unlock()
+            if let managedPIDFile {
+                Self.removePIDFile(managedPIDFile, matching: process.processIdentifier)
+            }
         }
 
         let started = Date()
@@ -459,6 +522,18 @@ public final class ActionExecutor: @unchecked Sendable {
         } catch {
             throw ActionExecutionError.launchFailed(error.localizedDescription)
         }
+        if let managedPIDFile {
+            try? FileManager.default.createDirectory(
+                at: managedPIDFile.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try? String(process.processIdentifier).write(
+                to: managedPIDFile,
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        if shouldCancel, process.isRunning { process.terminate() }
 
         if let timeout = options.timeoutSeconds, timeout > 0 {
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
@@ -485,5 +560,27 @@ public final class ActionExecutor: @unchecked Sendable {
             return FileManager.default.homeDirectoryForCurrentUser
         }
         return URL(fileURLWithPath: NSString(string: raw).expandingTildeInPath, isDirectory: true)
+    }
+
+    private static func commandLine(for pid: Int32) -> String {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-p", String(pid), "-o", "command="]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return "" }
+        process.waitUntilExit()
+        return String(
+            decoding: output.fileHandleForReading.readDataToEndOfFile(),
+            as: UTF8.self
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func removePIDFile(_ file: URL, matching pid: Int32) {
+        guard let text = try? String(contentsOf: file, encoding: .utf8),
+              Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) == pid
+        else { return }
+        try? FileManager.default.removeItem(at: file)
     }
 }

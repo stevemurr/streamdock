@@ -244,7 +244,11 @@ private struct DeckKeySlot: View {
         let button = Button {
             model.select(position: position)
         } label: {
-            KeyFaceView(key: key, position: position)
+            KeyFaceView(
+                key: key,
+                position: position,
+                isActive: key.map { model.activeActions[$0.id] != nil } ?? false
+            )
         }
         if key != nil {
             button.draggable(String(position))
@@ -257,14 +261,14 @@ private struct DeckKeySlot: View {
 struct KeyFaceView: View {
     let key: KeyConfiguration?
     let position: Int
+    var isActive = false
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 13)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: key?.color ?? "#20242b").opacity(0.96),
-                                 Color(hex: key?.color ?? "#20242b").opacity(0.62)],
+                        colors: [faceColor.opacity(0.96), faceColor.opacity(0.62)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -284,6 +288,15 @@ struct KeyFaceView: View {
                 Text("\(position + 1)")
                     .foregroundStyle(.white.opacity(0.28))
             }
+            if isActive {
+                RoundedRectangle(cornerRadius: 13)
+                    .strokeBorder(.green, lineWidth: 4)
+                Circle()
+                    .fill(.green)
+                    .frame(width: 10, height: 10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(8)
+            }
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityElement(children: .ignore)
@@ -293,6 +306,11 @@ struct KeyFaceView: View {
     private var accessibilityDescription: String {
         guard let key else { return "Unassigned key \(position + 1)" }
         return key.label.isEmpty ? "Key \(position + 1)" : key.label
+    }
+
+    private var faceColor: Color {
+        guard let key else { return Color(hex: "#20242b") }
+        return Color(hex: isActive ? (key.activeColor ?? key.color) : key.color)
     }
 
     private func symbol(for icon: String?) -> String {

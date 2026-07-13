@@ -18,7 +18,8 @@ public enum KeyFaceRenderer {
     public static func jpegData(
         for key: KeyConfiguration,
         baseDirectory: URL? = nil,
-        size: Int = StreamDockProtocol.keyPixelSize
+        size: Int = StreamDockProtocol.keyPixelSize,
+        isActive: Bool = false
     ) throws -> Data {
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil,
@@ -47,11 +48,12 @@ public enum KeyFaceRenderer {
             if let image = NSImage(contentsOf: url) {
                 image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
             } else {
-                drawGeneratedFace(key, in: bounds)
+                drawGeneratedFace(key, in: bounds, isActive: isActive)
             }
         } else {
-            drawGeneratedFace(key, in: bounds)
+            drawGeneratedFace(key, in: bounds, isActive: isActive)
         }
+        if isActive { drawActiveIndicator(in: bounds) }
         context.flushGraphics()
         NSGraphicsContext.restoreGraphicsState()
 
@@ -61,8 +63,24 @@ public enum KeyFaceRenderer {
         return jpeg
     }
 
-    private static func drawGeneratedFace(_ key: KeyConfiguration, in bounds: NSRect) {
-        let base = NSColor(hex: key.color) ?? NSColor(calibratedRed: 0.17, green: 0.24, blue: 0.31, alpha: 1)
+    private static func drawActiveIndicator(in bounds: NSRect) {
+        let ring = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 3, dy: 3),
+            xRadius: 7,
+            yRadius: 7
+        )
+        NSColor.systemGreen.setStroke()
+        ring.lineWidth = 4
+        ring.stroke()
+
+        let dot = NSBezierPath(ovalIn: NSRect(x: bounds.maxX - 14, y: bounds.maxY - 14, width: 8, height: 8))
+        NSColor.systemGreen.setFill()
+        dot.fill()
+    }
+
+    private static func drawGeneratedFace(_ key: KeyConfiguration, in bounds: NSRect, isActive: Bool) {
+        let color = isActive ? (key.activeColor ?? key.color) : key.color
+        let base = NSColor(hex: color) ?? NSColor(calibratedRed: 0.17, green: 0.24, blue: 0.31, alpha: 1)
         let top = base.blended(withFraction: 0.18, of: .white) ?? base
         let bottom = base.blended(withFraction: 0.24, of: .black) ?? base
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 8, yRadius: 8)

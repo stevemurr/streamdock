@@ -3,6 +3,25 @@ import Combine
 import StreamDockCore
 import SwiftUI
 
+struct ActiveActionStatus: Identifiable, Equatable {
+    let id: UUID
+    let label: String
+    let startedAt: Date
+    let endsAt: Date?
+
+    func detail(now: Date = Date()) -> String {
+        guard let endsAt else { return "On" }
+        let remaining = max(0, Int(endsAt.timeIntervalSince(now).rounded(.up)))
+        let hours = remaining / 3600
+        let minutes = (remaining % 3600) / 60
+        let seconds = remaining % 60
+        let value = hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%d:%02d", minutes, seconds)
+        return "\(value) remaining"
+    }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var configuration: DeckConfiguration
@@ -19,6 +38,7 @@ final class AppModel: ObservableObject {
     @Published var secrets: [SecretItem] = []
     @Published var isShowingSecrets = false
     @Published var secretsError: String?
+    @Published private(set) var activeActions: [UUID: ActiveActionStatus] = [:]
 
     let configurationURL: URL
     private let store = ConfigurationStore()
@@ -28,6 +48,8 @@ final class AppModel: ObservableObject {
     private var controlServer: ControlServer?
     private var importedFrom: URL?
     private var terminationObserver: NSObjectProtocol?
+    private var actionTimers: [UUID: Task<Void, Never>] = [:]
+    private var stoppingManagedActions: Set<UUID> = []
 
     init() {
         // UI tests point the app at a scratch config and disable everything
@@ -57,6 +79,7 @@ final class AppModel: ObservableObject {
         selectedPageID = configuration.pages.first?.id
         configureEnvironmentFile()
         guard !isUITesting else { return }
+        executor.cleanupStaleManagedProcesses()
         loadSecrets()
         runtime.onStatusChange = { [weak self] status in self?.deviceStatus = status }
         runtime.onExecutableAction = { [weak self] key in
@@ -70,9 +93,10 @@ final class AppModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.controlServer?.stop()
                 self?.runtime.stop()
+                self?.executor.cancelAll()
             }
         }
     }
@@ -234,18 +258,71 @@ final class AppModel: ObservableObject {
     }
 
     private func runHardwareAction(_ key: KeyConfiguration, pageName: String?, depth: Int) {
+        let behavior = key.trigger.executionOptions?.behavior ?? .runOnce
+        if behavior != .runOnce, activeActions[key.id] != nil {
+            stopActiveAction(key.id)
+            return
+        }
         let context = KeyExecutionContext(keyPosition: key.position, pageName: pageName, pressDepth: depth)
+        if behavior != .runOnce {
+            let duration = key.trigger.executionOptions?.durationSeconds ?? 3600
+            let status = ActiveActionStatus(
+                id: key.id,
+                label: key.label.isEmpty ? "Key \(key.position + 1)" : key.label,
+                startedAt: Date(),
+                endsAt: behavior == .timed ? Date().addingTimeInterval(max(1, duration)) : nil
+            )
+            setActiveAction(status)
+            if behavior == .timed {
+                actionTimers[key.id] = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(max(1, duration)))
+                    guard !Task.isCancelled else { return }
+                    self?.stopActiveAction(key.id)
+                }
+            }
+        }
         Task {
             do {
                 let result = try await executor.execute(key.trigger, keyID: key.id, context: context)
                 executionResult = result
-                if !result.succeeded {
+                let wasExpectedStop = stoppingManagedActions.remove(key.id) != nil
+                if !result.succeeded, !wasExpectedStop {
                     executionError = "\(key.label.isEmpty ? "Key \(key.position + 1)" : key.label) exited with status \(result.exitCode)."
                 }
             } catch {
-                executionError = error.localizedDescription
+                let wasExpectedStop = stoppingManagedActions.remove(key.id) != nil
+                if !wasExpectedStop { executionError = error.localizedDescription }
             }
+            if behavior != .runOnce { clearActiveAction(key.id) }
         }
+    }
+
+    var sortedActiveActions: [ActiveActionStatus] {
+        activeActions.values.sorted { $0.startedAt < $1.startedAt }
+    }
+
+    func stopActiveAction(_ keyID: UUID) {
+        guard activeActions[keyID] != nil else { return }
+        stoppingManagedActions.insert(keyID)
+        actionTimers[keyID]?.cancel()
+        actionTimers[keyID] = nil
+        executor.cancel(keyID: keyID)
+    }
+
+    func stopAllActiveActions() {
+        for keyID in activeActions.keys { stopActiveAction(keyID) }
+    }
+
+    private func setActiveAction(_ status: ActiveActionStatus) {
+        activeActions[status.id] = status
+        runtime.updateActiveKeyIDs(Set(activeActions.keys))
+    }
+
+    private func clearActiveAction(_ keyID: UUID) {
+        actionTimers[keyID]?.cancel()
+        actionTimers[keyID] = nil
+        activeActions[keyID] = nil
+        runtime.updateActiveKeyIDs(Set(activeActions.keys))
     }
 
     // MARK: - Key references (macros)
@@ -329,7 +406,7 @@ final class AppModel: ObservableObject {
         case .sleepDeck:
             runtime.sleepDeck()
             return ControlResponse(ok: true, detail: "deck sleeping")
-        case .launchApplication, .shellCommand, .inlineScript, .scriptFile:
+        case .launchApplication, .shellCommand, .inlineScript, .scriptFile, .caffeinate:
             // Same fire-and-forget path as a hardware press, but the chain
             // depth carries over from the requesting action.
             runHardwareAction(match.key, pageName: match.page.name, depth: request.depth ?? 0)

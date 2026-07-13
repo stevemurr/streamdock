@@ -1,5 +1,17 @@
 import Foundation
 
+struct ButtonPressFilter {
+    private var downPositions: Set<Int> = []
+
+    mutating func accepts(position: Int, isDown: Bool) -> Bool {
+        if isDown { return downPositions.insert(position).inserted }
+        downPositions.remove(position)
+        return false
+    }
+
+    mutating func reset() { downPositions.removeAll() }
+}
+
 @MainActor
 public final class DeckRuntimeController {
     public var onStatusChange: ((String) -> Void)?
@@ -12,6 +24,8 @@ public final class DeckRuntimeController {
     private var asleep = false
     private var lastConnectAttempt = Date.distantPast
     private var lastActivity = Date()
+    private var activeKeyIDs: Set<UUID> = []
+    private var pressFilter = ButtonPressFilter()
 
     public init(device: StreamDockHIDDevice = .init()) {
         self.device = device
@@ -34,6 +48,7 @@ public final class DeckRuntimeController {
         timer = nil
         if configuration.settings.clearOnExit { try? device.clearAll() }
         device.disconnect()
+        pressFilter.reset()
         onStatusChange?("Stopped")
     }
 
@@ -64,7 +79,11 @@ public final class DeckRuntimeController {
         } ?? ConfigurationStore.defaultConfigurationURL.deletingLastPathComponent()
         for key in page.keys.sorted(by: { $0.position < $1.position }) {
             guard StreamDockProtocol.positionToSlot.indices.contains(key.position) else { continue }
-            let jpeg = try KeyFaceRenderer.jpegData(for: key, baseDirectory: base)
+            let jpeg = try KeyFaceRenderer.jpegData(
+                for: key,
+                baseDirectory: base,
+                isActive: activeKeyIDs.contains(key.id)
+            )
             try device.setImage(position: key.position, jpeg: jpeg)
         }
         onStatusChange?("Connected · \(page.name) · \(page.keys.count) keys")
@@ -77,6 +96,13 @@ public final class DeckRuntimeController {
 
     /// Name of the page currently shown on the deck, if any.
     public var activePageName: String? { activePage?.name }
+
+    public func updateActiveKeyIDs(_ keyIDs: Set<UUID>) {
+        guard activeKeyIDs != keyIDs else { return }
+        activeKeyIDs = keyIDs
+        guard device.isConnected, !asleep else { return }
+        do { try renderActivePage() } catch { report(error) }
+    }
 
     /// Puts the deck's displays to sleep; the next hardware press wakes it.
     public func sleepDeck() {
@@ -119,6 +145,7 @@ public final class DeckRuntimeController {
         do {
             try device.connect()
             try device.initialize(brightness: configuration.settings.brightness)
+            pressFilter.reset()
             asleep = false
             lastActivity = Date()
             try renderActivePage()
@@ -132,8 +159,8 @@ public final class DeckRuntimeController {
 
     private func handle(position: Int, isDown: Bool) {
         lastActivity = Date()
+        guard pressFilter.accepts(position: position, isDown: isDown) else { return }
         if asleep {
-            guard isDown else { return }
             do {
                 try device.wake()
                 try device.setBrightness(configuration.settings.brightness)
@@ -142,7 +169,6 @@ public final class DeckRuntimeController {
             } catch { report(error) }
             return
         }
-        guard isDown else { return }
         guard let key = activePage?.keys.first(where: { $0.position == position }) else {
             if let target = Self.bottomButtonTargets[position] { switchPage(target) }
             return
@@ -154,7 +180,7 @@ public final class DeckRuntimeController {
             switchPage(target)
         case .none:
             break
-        case .launchApplication, .shellCommand, .inlineScript, .scriptFile:
+        case .launchApplication, .shellCommand, .inlineScript, .scriptFile, .caffeinate:
             onExecutableAction?(key)
         }
     }

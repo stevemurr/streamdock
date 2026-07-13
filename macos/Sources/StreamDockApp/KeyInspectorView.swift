@@ -41,6 +41,9 @@ private struct InspectorForm: View {
                         ForEach(icons, id: \.self) { Text($0.capitalized).tag(Optional($0)) }
                     }
                     ColorRow(colorHex: $key.color)
+                    if key.trigger.executionOptions?.behavior != .runOnce {
+                        ColorRow(label: "Active Color", colorHex: activeColor)
+                    }
                 }
 
                 Section("On Press") {
@@ -71,6 +74,13 @@ private struct InspectorForm: View {
         Binding(
             get: { key.trigger.kind },
             set: { key.trigger = .blank($0) }
+        )
+    }
+
+    private var activeColor: Binding<String> {
+        Binding(
+            get: { key.activeColor ?? "#287a45" },
+            set: { key.activeColor = $0 }
         )
     }
 
@@ -112,7 +122,7 @@ private struct InspectorForm: View {
 
     private var isExecutable: Bool {
         switch key.trigger {
-        case .launchApplication, .shellCommand, .inlineScript, .scriptFile: true
+        case .launchApplication, .shellCommand, .inlineScript, .scriptFile, .caffeinate: true
         default: false
         }
     }
@@ -121,12 +131,13 @@ private struct InspectorForm: View {
 /// A color picker paired with a monospaced hex field, both backed by the
 /// key's `#rrggbb` color string.
 private struct ColorRow: View {
+    var label = "Color"
     @Binding var colorHex: String
     @State private var draft = ""
     @FocusState private var hexFieldFocused: Bool
 
     var body: some View {
-        LabeledContent("Color") {
+        LabeledContent(label) {
             HStack(spacing: 8) {
                 ColorPicker("Color", selection: pickerColor, supportsOpacity: false)
                     .labelsHidden()
@@ -246,6 +257,13 @@ private struct ActionEditor: View {
                 .lineLimit(2...5)
                 .font(.system(.body, design: .monospaced))
             ExecutionOptionsEditor(options: fileOptions)
+        case .caffeinate:
+            Toggle("Prevent idle system sleep", isOn: caffeinateIdleSleep)
+            Toggle("Prevent display sleep", isOn: caffeinateDisplaySleep)
+            Text("StreamDock runs macOS /usr/bin/caffeinate directly and stops it when this button is toggled off.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ExecutionOptionsEditor(options: caffeinateOptions)
         case .switchPage:
             TextField("Page name, next, or prev", text: pageTarget)
         }
@@ -380,6 +398,36 @@ private struct ActionEditor: View {
         )
     }
 
+    private var caffeinateIdleSleep: Binding<Bool> {
+        binding(
+            get: { if case let .caffeinate(value) = key.trigger { value.preventIdleSystemSleep } else { true } },
+            set: {
+                guard case var .caffeinate(value) = key.trigger else { return }
+                value.preventIdleSystemSleep = $0; key.trigger = .caffeinate(value)
+            }
+        )
+    }
+
+    private var caffeinateDisplaySleep: Binding<Bool> {
+        binding(
+            get: { if case let .caffeinate(value) = key.trigger { value.preventDisplaySleep } else { false } },
+            set: {
+                guard case var .caffeinate(value) = key.trigger else { return }
+                value.preventDisplaySleep = $0; key.trigger = .caffeinate(value)
+            }
+        )
+    }
+
+    private var caffeinateOptions: Binding<ExecutionOptions> {
+        binding(
+            get: { if case let .caffeinate(value) = key.trigger { value.options } else { .init(behavior: .toggle) } },
+            set: {
+                guard case var .caffeinate(value) = key.trigger else { return }
+                value.options = $0; key.trigger = .caffeinate(value)
+            }
+        )
+    }
+
     private var pageTarget: Binding<String> {
         binding(
             get: { if case let .switchPage(value) = key.trigger { value } else { "next" } },
@@ -430,6 +478,19 @@ private struct ExecutionOptionsEditor: View {
     @Binding var options: ExecutionOptions
 
     var body: some View {
+        Picker("Behavior", selection: $options.behavior) {
+            ForEach(ExecutionBehavior.allCases) { behavior in
+                Text(behavior.displayName).tag(behavior)
+            }
+        }
+        if options.behavior == .timed {
+            Stepper(value: $options.durationSeconds, in: 1...86400, step: 60) {
+                LabeledContent("Duration") {
+                    Text(formattedDuration(options.durationSeconds))
+                        .monospacedDigit()
+                }
+            }
+        }
         DisclosureGroup("Execution Environment") {
             TextField(
                 "Working directory (defaults to home)",
@@ -439,9 +500,18 @@ private struct ExecutionOptionsEditor: View {
                 )
             )
             Toggle("Allow concurrent runs", isOn: $options.allowConcurrent)
+                .disabled(options.behavior != .runOnce)
             Text("Commands inherit the login-shell environment and run in your home folder unless overridden here.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func formattedDuration(_ seconds: Double) -> String {
+        let value = max(1, Int(seconds.rounded()))
+        if value % 3600 == 0 { return "\(value / 3600)h" }
+        if value >= 3600 { return "\(value / 3600)h \((value % 3600) / 60)m" }
+        if value >= 60 { return "\(value / 60)m" }
+        return "\(value)s"
     }
 }

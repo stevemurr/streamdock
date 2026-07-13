@@ -3,6 +3,65 @@ import XCTest
 @testable import StreamDockCore
 
 final class ActionExecutorTests: XCTestCase {
+    func testLegacyLongRunningActionStillRejectsConcurrentPress() async throws {
+        let executor = ActionExecutor(baseEnvironment: ProcessInfo.processInfo.environment)
+        let keyID = UUID()
+        let action = KeyTrigger.shellCommand(.init(source: "sleep 30"))
+        let first = Task { try await executor.execute(action, keyID: keyID) }
+        try await Task.sleep(for: .milliseconds(150))
+
+        do {
+            _ = try await executor.execute(action, keyID: keyID)
+            XCTFail("Expected the unchanged run-once behavior to reject a duplicate press")
+        } catch let error as ActionExecutionError {
+            XCTAssertEqual(error.localizedDescription, ActionExecutionError.alreadyRunning.localizedDescription)
+        }
+        executor.cancel(keyID: keyID)
+        _ = try await first.value
+    }
+
+    func testCaffeinateActionCanBeCancelled() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executor = ActionExecutor(
+            baseEnvironment: ProcessInfo.processInfo.environment,
+            managedProcessDirectory: directory
+        )
+        let keyID = UUID()
+        let task = Task {
+            try await executor.execute(.caffeinate(.init()), keyID: keyID)
+        }
+        try await Task.sleep(for: .milliseconds(150))
+        executor.cancel(keyID: keyID)
+        let result = try await task.value
+        XCTAssertEqual(result.launchedDescription, "Keep Mac Awake")
+        XCTAssertLessThan(result.duration, 3)
+        XCTAssertEqual((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? [], [])
+    }
+
+    func testCleanupStopsOnlyRecordedCaffeinateProcess() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let caffeinate = Process()
+        caffeinate.executableURL = URL(fileURLWithPath: "/usr/bin/caffeinate")
+        caffeinate.arguments = ["-i"]
+        try caffeinate.run()
+        let pidFile = directory.appendingPathComponent("caffeinate-test.pid")
+        try String(caffeinate.processIdentifier).write(to: pidFile, atomically: true, encoding: .utf8)
+
+        let executor = ActionExecutor(
+            baseEnvironment: ProcessInfo.processInfo.environment,
+            managedProcessDirectory: directory
+        )
+        executor.cleanupStaleManagedProcesses()
+        caffeinate.waitUntilExit()
+
+        XCTAssertFalse(caffeinate.isRunning)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: pidFile.path))
+    }
+
     func testInlineShellRunsInConfiguredDirectoryAndCapturesOutput() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

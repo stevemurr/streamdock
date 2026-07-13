@@ -16,10 +16,18 @@ struct StreamDockApplication: App {
         }
         .defaultSize(width: 1180, height: 760)
 
-        MenuBarExtra("StreamDock", systemImage: "rectangle.grid.3x2.fill") {
+        MenuBarExtra {
             MenuBarContent()
                 .environmentObject(model)
+        } label: {
+            Label(
+                "StreamDock",
+                systemImage: model.activeActions.isEmpty
+                    ? "rectangle.grid.3x2.fill"
+                    : "bolt.circle.fill"
+            )
         }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView()
@@ -34,21 +42,51 @@ private struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Text(model.deviceStatus)
-        Divider()
-        Button("Open Editor") {
-            openWindow(id: "editor")
-            NSApp.activate(ignoringOtherApps: true)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(model.deviceStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Divider()
+            Text("Active Actions")
+                .font(.headline)
+            if model.activeActions.isEmpty {
+                Text("None")
+                    .foregroundStyle(.secondary)
+            } else {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    ForEach(model.sortedActiveActions) { action in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(action.label)
+                                Text(action.detail(now: context.date))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Stop") { model.stopActiveAction(action.id) }
+                        }
+                    }
+                }
+                Button("Stop All Actions") { model.stopAllActiveActions() }
+            }
+            Divider()
+            HStack {
+                Button("Open Editor") {
+                    openWindow(id: "editor")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                Button("Secrets…") {
+                    openWindow(id: "editor")
+                    NSApp.activate(ignoringOtherApps: true)
+                    model.isShowingSecrets = true
+                }
+                Spacer()
+                Button("Quit") { NSApp.terminate(nil) }
+            }
         }
-        Button("Manage Secrets…") {
-            openWindow(id: "editor")
-            NSApp.activate(ignoringOtherApps: true)
-            model.isShowingSecrets = true
-        }
-        Button("Save") { model.save() }
-            .disabled(!model.isDirty)
-        Divider()
-        Button("Quit StreamDock") { NSApp.terminate(nil) }
+        .padding(14)
+        .frame(width: 300)
     }
 }
 

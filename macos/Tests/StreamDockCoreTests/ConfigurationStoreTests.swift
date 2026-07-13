@@ -3,6 +3,45 @@ import XCTest
 @testable import StreamDockCore
 
 final class ConfigurationStoreTests: XCTestCase {
+    func testLegacyExecutionOptionsDefaultToRunOnce() throws {
+        let options = try JSONDecoder().decode(ExecutionOptions.self, from: Data("{}".utf8))
+        XCTAssertEqual(options.behavior, .runOnce)
+        XCTAssertEqual(options.durationSeconds, 3600)
+        XCTAssertFalse(options.allowConcurrent)
+    }
+
+    func testCaffeinateTimedToggleRoundTrips() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("config.yaml")
+        let options = ExecutionOptions(behavior: .timed, durationSeconds: 900)
+        let key = KeyConfiguration(
+            position: 0,
+            label: "Caffeinate",
+            color: "#3f454f",
+            activeColor: "#287a45",
+            trigger: .caffeinate(.init(
+                preventIdleSystemSleep: true,
+                preventDisplaySleep: true,
+                options: options
+            ))
+        )
+        let configuration = DeckConfiguration(pages: [.init(name: "main", keys: [key])])
+
+        let store = ConfigurationStore()
+        try store.save(configuration, to: url)
+        let loaded = try store.load(from: url)
+        guard case let .caffeinate(action) = loaded.pages[0].keys[0].trigger else {
+            return XCTFail("Expected caffeinate action")
+        }
+        XCTAssertTrue(action.preventIdleSystemSleep)
+        XCTAssertTrue(action.preventDisplaySleep)
+        XCTAssertEqual(action.options.behavior, .timed)
+        XCTAssertEqual(action.options.durationSeconds, 900)
+        XCTAssertEqual(loaded.pages[0].keys[0].activeColor, "#287a45")
+    }
+
     func testScreenOffSettingRoundTripsAndDefaultsToNever() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

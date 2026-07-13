@@ -3,6 +3,23 @@ import XCTest
 @testable import StreamDockCore
 
 final class DeviceProtocolTests: XCTestCase {
+    func testRepeatedDownReportsProduceOnePressUntilRelease() {
+        var filter = ButtonPressFilter()
+        XCTAssertTrue(filter.accepts(position: 8, isDown: true))
+        XCTAssertFalse(filter.accepts(position: 8, isDown: true))
+        XCTAssertFalse(filter.accepts(position: 8, isDown: false))
+        XCTAssertTrue(filter.accepts(position: 8, isDown: true))
+    }
+
+    func testPressFilterTracksKeysIndependentlyAndCanReset() {
+        var filter = ButtonPressFilter()
+        XCTAssertTrue(filter.accepts(position: 1, isDown: true))
+        XCTAssertTrue(filter.accepts(position: 8, isDown: true))
+        XCTAssertFalse(filter.accepts(position: 1, isDown: true))
+        filter.reset()
+        XCTAssertTrue(filter.accepts(position: 1, isDown: true))
+    }
+
     func testCommandPacketsHaveReportIDAndExactProtocolLength() {
         let packet = StreamDockProtocol.mode()
         XCTAssertEqual(packet.count, 1025)

@@ -20,26 +20,48 @@ public enum ScriptLanguage: String, Codable, CaseIterable, Identifiable, Sendabl
     }
 }
 
+public enum ExecutionBehavior: String, Codable, CaseIterable, Identifiable, Sendable {
+    case runOnce
+    case toggle
+    case timed
+
+    public var id: Self { self }
+
+    public var displayName: String {
+        switch self {
+        case .runOnce: "Run Once"
+        case .toggle: "Toggle"
+        case .timed: "Timed Toggle"
+        }
+    }
+}
+
 public struct ExecutionOptions: Codable, Equatable, Sendable {
     public var workingDirectory: String?
     public var environment: [String: String]
     public var timeoutSeconds: Double?
     public var allowConcurrent: Bool
+    public var behavior: ExecutionBehavior
+    public var durationSeconds: Double
 
     public init(
         workingDirectory: String? = nil,
         environment: [String: String] = [:],
         timeoutSeconds: Double? = nil,
-        allowConcurrent: Bool = false
+        allowConcurrent: Bool = false,
+        behavior: ExecutionBehavior = .runOnce,
+        durationSeconds: Double = 3600
     ) {
         self.workingDirectory = workingDirectory
         self.environment = environment
         self.timeoutSeconds = timeoutSeconds
         self.allowConcurrent = allowConcurrent
+        self.behavior = behavior
+        self.durationSeconds = durationSeconds
     }
 
     private enum CodingKeys: String, CodingKey {
-        case workingDirectory, environment, timeoutSeconds, allowConcurrent
+        case workingDirectory, environment, timeoutSeconds, allowConcurrent, behavior, durationSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +70,24 @@ public struct ExecutionOptions: Codable, Equatable, Sendable {
         environment = try values.decodeIfPresent([String: String].self, forKey: .environment) ?? [:]
         timeoutSeconds = try values.decodeIfPresent(Double.self, forKey: .timeoutSeconds)
         allowConcurrent = try values.decodeIfPresent(Bool.self, forKey: .allowConcurrent) ?? false
+        behavior = try values.decodeIfPresent(ExecutionBehavior.self, forKey: .behavior) ?? .runOnce
+        durationSeconds = try values.decodeIfPresent(Double.self, forKey: .durationSeconds) ?? 3600
+    }
+}
+
+public struct CaffeinateAction: Codable, Equatable, Sendable {
+    public var preventIdleSystemSleep: Bool
+    public var preventDisplaySleep: Bool
+    public var options: ExecutionOptions
+
+    public init(
+        preventIdleSystemSleep: Bool = true,
+        preventDisplaySleep: Bool = false,
+        options: ExecutionOptions = .init(behavior: .toggle)
+    ) {
+        self.preventIdleSystemSleep = preventIdleSystemSleep
+        self.preventDisplaySleep = preventDisplaySleep
+        self.options = options
     }
 }
 
@@ -120,6 +160,7 @@ public enum KeyTrigger: Equatable, Sendable {
     case shellCommand(CommandAction)
     case inlineScript(InlineScriptAction)
     case scriptFile(ScriptFileAction)
+    case caffeinate(CaffeinateAction)
     case switchPage(String)
     case sleepDeck
 
@@ -129,6 +170,7 @@ public enum KeyTrigger: Equatable, Sendable {
         case shellCommand
         case inlineScript
         case scriptFile
+        case caffeinate
         case switchPage
         case sleepDeck
 
@@ -141,6 +183,7 @@ public enum KeyTrigger: Equatable, Sendable {
             case .shellCommand: "Shell Command"
             case .inlineScript: "Inline Code"
             case .scriptFile: "Script File"
+            case .caffeinate: "Keep Mac Awake"
             case .switchPage: "Switch Page"
             case .sleepDeck: "Sleep Deck"
             }
@@ -154,6 +197,7 @@ public enum KeyTrigger: Equatable, Sendable {
         case .shellCommand: .shellCommand
         case .inlineScript: .inlineScript
         case .scriptFile: .scriptFile
+        case .caffeinate: .caffeinate
         case .switchPage: .switchPage
         case .sleepDeck: .sleepDeck
         }
@@ -166,6 +210,7 @@ public enum KeyTrigger: Equatable, Sendable {
         case .shellCommand: .shellCommand(.init())
         case .inlineScript: .inlineScript(.init())
         case .scriptFile: .scriptFile(.init())
+        case .caffeinate: .caffeinate(.init())
         case .switchPage: .switchPage("next")
         case .sleepDeck: .sleepDeck
         }
@@ -174,7 +219,7 @@ public enum KeyTrigger: Equatable, Sendable {
 
 extension KeyTrigger: Codable {
     private enum CodingKeys: String, CodingKey {
-        case type, application, command, script, file, target
+        case type, application, command, script, file, caffeinate, target
     }
 
     public init(from decoder: Decoder) throws {
@@ -191,6 +236,8 @@ extension KeyTrigger: Codable {
             self = .inlineScript(try values.decode(InlineScriptAction.self, forKey: .script))
         case .scriptFile:
             self = .scriptFile(try values.decode(ScriptFileAction.self, forKey: .file))
+        case .caffeinate:
+            self = .caffeinate(try values.decode(CaffeinateAction.self, forKey: .caffeinate))
         case .switchPage:
             self = .switchPage(try values.decode(String.self, forKey: .target))
         case .sleepDeck:
@@ -212,8 +259,22 @@ extension KeyTrigger: Codable {
             try values.encode(value, forKey: .script)
         case let .scriptFile(value):
             try values.encode(value, forKey: .file)
+        case let .caffeinate(value):
+            try values.encode(value, forKey: .caffeinate)
         case let .switchPage(value):
             try values.encode(value, forKey: .target)
+        }
+    }
+}
+
+public extension KeyTrigger {
+    var executionOptions: ExecutionOptions? {
+        switch self {
+        case let .shellCommand(action): action.options
+        case let .inlineScript(action): action.options
+        case let .scriptFile(action): action.options
+        case let .caffeinate(action): action.options
+        case .none, .launchApplication, .switchPage, .sleepDeck: nil
         }
     }
 }
@@ -225,6 +286,7 @@ public struct KeyConfiguration: Codable, Identifiable, Equatable, Sendable {
     public var icon: String?
     public var image: String?
     public var color: String
+    public var activeColor: String?
     public var level: Double?
     public var trigger: KeyTrigger
 
@@ -235,6 +297,7 @@ public struct KeyConfiguration: Codable, Identifiable, Equatable, Sendable {
         icon: String? = nil,
         image: String? = nil,
         color: String = "#2c3e50",
+        activeColor: String? = nil,
         level: Double? = nil,
         trigger: KeyTrigger = .none
     ) {
@@ -244,12 +307,13 @@ public struct KeyConfiguration: Codable, Identifiable, Equatable, Sendable {
         self.icon = icon
         self.image = image
         self.color = color
+        self.activeColor = activeColor
         self.level = level
         self.trigger = trigger
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, position, label, icon, image, color, level, trigger
+        case id, position, label, icon, image, color, activeColor, level, trigger
         case app, command, action
     }
 
@@ -267,6 +331,7 @@ public struct KeyConfiguration: Codable, Identifiable, Equatable, Sendable {
         } else {
             color = "#2c3e50"
         }
+        activeColor = try values.decodeIfPresent(String.self, forKey: .activeColor)
         level = try values.decodeIfPresent(Double.self, forKey: .level)
 
         if let typed = try values.decodeIfPresent(KeyTrigger.self, forKey: .trigger) {
@@ -296,6 +361,7 @@ public struct KeyConfiguration: Codable, Identifiable, Equatable, Sendable {
         try values.encodeIfPresent(icon, forKey: .icon)
         try values.encodeIfPresent(image, forKey: .image)
         try values.encode(color, forKey: .color)
+        try values.encodeIfPresent(activeColor, forKey: .activeColor)
         try values.encodeIfPresent(level, forKey: .level)
         if trigger != .none { try values.encode(trigger, forKey: .trigger) }
     }
