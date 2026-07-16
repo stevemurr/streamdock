@@ -80,6 +80,23 @@ configuration at `~/Library/Application Support/StreamDock/config.yaml`.
 See [`macos/README.md`](macos/README.md) for native architecture and
 verification details.
 
+## Web access (phone controls)
+
+StreamDock can serve your live deck as a responsive web interface for a phone,
+tablet, or browser on the same local network. In the macOS app, open
+**Settings → Phone Controls**, enable **Serve button interface on local
+network**, choose a port, and save the configuration. Then open the displayed
+**Phone URL** on the other device.
+
+<div align="center">
+<img src="docs/streamdock-web-access.png" alt="StreamDock Settings showing the local-network Phone Controls web server" width="720">
+</div>
+
+The page mirrors the 15 deck buttons and page tabs, but does not expose the
+editor, configuration, or secrets. Web presses can run the same actions as the
+physical deck, so the server is disabled by default and should only be enabled
+on a network you trust.
+
 ## Python CLI (optional)
 
 The Python driver and CLI remain useful for hardware diagnostics, one-shot

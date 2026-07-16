@@ -19,6 +19,7 @@ macos/.build/
 macos/.swiftpm/
 xcuserdata/
 *.xcuserstate
+test-results/
 
 # OS
 .DS_Store
