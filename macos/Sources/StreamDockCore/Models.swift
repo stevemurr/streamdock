@@ -397,6 +397,10 @@ public struct DeckSettings: Codable, Equatable, Sendable {
     /// Idle time before the deck displays turn off automatically; nil never
     /// sleeps. Any hardware key press counts as activity and wakes the deck.
     public var screenOffAfterSeconds: Double?
+    /// Serves the button-only control surface to devices on the local network.
+    /// Disabled by default because web presses can run arbitrary configured actions.
+    public var webServerEnabled: Bool
+    public var webServerPort: Int
 
     public init(
         brightness: Int = 80,
@@ -404,7 +408,9 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         clearOnExit: Bool = true,
         environmentFile: String? = nil,
         resourceRoot: String? = nil,
-        screenOffAfterSeconds: Double? = nil
+        screenOffAfterSeconds: Double? = nil,
+        webServerEnabled: Bool = false,
+        webServerPort: Int = 8420
     ) {
         self.brightness = brightness
         self.keepaliveSeconds = keepaliveSeconds
@@ -412,6 +418,8 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         self.environmentFile = environmentFile
         self.resourceRoot = resourceRoot
         self.screenOffAfterSeconds = screenOffAfterSeconds
+        self.webServerEnabled = webServerEnabled
+        self.webServerPort = webServerPort
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -421,6 +429,8 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         case environmentFile = "env_file"
         case resourceRoot = "resource_root"
         case screenOffAfterSeconds = "screen_off_seconds"
+        case webServerEnabled = "web_server_enabled"
+        case webServerPort = "web_server_port"
     }
 
     public init(from decoder: Decoder) throws {
@@ -431,6 +441,8 @@ public struct DeckSettings: Codable, Equatable, Sendable {
         environmentFile = try values.decodeIfPresent(String.self, forKey: .environmentFile)
         resourceRoot = try values.decodeIfPresent(String.self, forKey: .resourceRoot)
         screenOffAfterSeconds = try values.decodeIfPresent(Double.self, forKey: .screenOffAfterSeconds)
+        webServerEnabled = try values.decodeIfPresent(Bool.self, forKey: .webServerEnabled) ?? false
+        webServerPort = try values.decodeIfPresent(Int.self, forKey: .webServerPort) ?? 8420
     }
 }
 

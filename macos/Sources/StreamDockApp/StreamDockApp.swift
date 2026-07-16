@@ -32,7 +32,7 @@ struct StreamDockApplication: App {
         Settings {
             SettingsView()
                 .environmentObject(model)
-                .frame(width: 560, height: 420)
+                .frame(width: 560, height: 620)
         }
     }
 }
@@ -143,6 +143,31 @@ struct SettingsView: View {
                     model.refreshExecutionEnvironment()
                 }
             }
+
+            Section("Phone Controls") {
+                Toggle("Serve button interface on local network", isOn: webServerEnabled)
+                    .accessibilityIdentifier("web-server-toggle")
+                LabeledContent("Port") {
+                    TextField("Port", value: webServerPort, format: .number.grouping(.never))
+                        .frame(width: 90)
+                        .multilineTextAlignment(.trailing)
+                        .disabled(!model.configuration.settings.webServerEnabled)
+                        .accessibilityIdentifier("web-server-port")
+                }
+                if let url = model.webServerURL {
+                    LabeledContent("Phone URL") {
+                        Text(url)
+                            .textSelection(.enabled)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(model.webServerStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Anyone who can reach this address can run your configured button actions. Keep it off on untrusted networks.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -166,6 +191,28 @@ struct SettingsView: View {
             set: { newValue in
                 guard model.configuration.settings.screenOffAfterSeconds != newValue else { return }
                 model.configuration.settings.screenOffAfterSeconds = newValue
+                model.isDirty = true
+            }
+        )
+    }
+
+    private var webServerEnabled: Binding<Bool> {
+        Binding(
+            get: { model.configuration.settings.webServerEnabled },
+            set: { enabled in
+                guard model.configuration.settings.webServerEnabled != enabled else { return }
+                model.configuration.settings.webServerEnabled = enabled
+                model.isDirty = true
+            }
+        )
+    }
+
+    private var webServerPort: Binding<Int> {
+        Binding(
+            get: { model.configuration.settings.webServerPort },
+            set: { port in
+                guard model.configuration.settings.webServerPort != port else { return }
+                model.configuration.settings.webServerPort = port
                 model.isDirty = true
             }
         )

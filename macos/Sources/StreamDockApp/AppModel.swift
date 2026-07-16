@@ -38,6 +38,7 @@ final class AppModel: ObservableObject {
     @Published var secrets: [SecretItem] = []
     @Published var isShowingSecrets = false
     @Published var secretsError: String?
+    @Published private(set) var webServerStatus = "Phone controls disabled"
     @Published private(set) var activeActions: [UUID: ActiveActionStatus] = [:]
 
     let configurationURL: URL
@@ -46,6 +47,7 @@ final class AppModel: ObservableObject {
     private let runtime = DeckRuntimeController()
     private let secretsStore = SecretsStore()
     private var controlServer: ControlServer?
+    private var webControlServer: WebControlServer?
     private var importedFrom: URL?
     private var terminationObserver: NSObjectProtocol?
     private var actionTimers: [UUID: Task<Void, Never>] = [:]
@@ -88,6 +90,7 @@ final class AppModel: ObservableObject {
         }
         runtime.start(configuration: configuration)
         setUpControlServer()
+        configureWebControlServer()
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
@@ -95,6 +98,7 @@ final class AppModel: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.controlServer?.stop()
+                self?.webControlServer?.stop()
                 self?.runtime.stop()
                 self?.executor.cancelAll()
             }
@@ -222,6 +226,7 @@ final class AppModel: ObservableObject {
             importedFrom = nil
             configureEnvironmentFile()
             runtime.update(configuration: configuration)
+            configureWebControlServer()
         } catch {
             present(error)
         }
@@ -382,6 +387,70 @@ final class AppModel: ObservableObject {
         default:
             return .failure("unknown command: \(request.command)")
         }
+    }
+
+    // MARK: - Phone controls
+
+    var webServerURL: String? {
+        guard configuration.settings.webServerEnabled,
+              (1...65535).contains(configuration.settings.webServerPort) else { return nil }
+        let host = WebControlServer.localIPv4Addresses().first ?? ProcessInfo.processInfo.hostName
+        return "http://\(host):\(configuration.settings.webServerPort)/"
+    }
+
+    private func configureWebControlServer() {
+        webControlServer?.stop()
+        webControlServer = nil
+        guard configuration.settings.webServerEnabled else {
+            webServerStatus = "Phone controls disabled"
+            return
+        }
+        let port = configuration.settings.webServerPort
+        guard (1...65535).contains(port) else {
+            webServerStatus = "Invalid web server port"
+            return
+        }
+        let server = WebControlServer(
+            stateProvider: { [weak self] in
+                guard let self else { return WebDeckState(activePage: "", pages: []) }
+                return await self.makeWebDeckState()
+            },
+            actionHandler: { [weak self] request in
+                guard let self else { return .failure("StreamDock is shutting down") }
+                return await self.handleControlRequest(request)
+            }
+        )
+        do {
+            try server.start(port: port)
+            webControlServer = server
+            webServerStatus = "Available on your local network"
+        } catch {
+            webServerStatus = error.localizedDescription
+        }
+    }
+
+    private func makeWebDeckState() -> WebDeckState {
+        let activePage = runtime.activePageName ?? configuration.pages.first?.name ?? ""
+        let activeIDs = Set(activeActions.keys)
+        let pages = configuration.pages.map { page in
+            WebDeckPage(
+                name: page.name,
+                keys: page.keys
+                    .filter { (0..<15).contains($0.position) }
+                    .sorted { $0.position < $1.position }
+                    .map { key in
+                        WebDeckKey(
+                            position: key.position,
+                            label: key.label,
+                            icon: key.icon,
+                            color: activeIDs.contains(key.id) ? (key.activeColor ?? key.color) : key.color,
+                            isActive: activeIDs.contains(key.id),
+                            hasAction: key.trigger != .none
+                        )
+                    }
+            )
+        }
+        return WebDeckState(activePage: activePage, pages: pages)
     }
 
     private func handleControlPress(_ request: ControlRequest) -> ControlResponse {

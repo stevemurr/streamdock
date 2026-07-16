@@ -62,6 +62,25 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertNil(try store.load(from: url).settings.screenOffAfterSeconds)
     }
 
+    func testWebServerSettingsRoundTripAndDefaultToDisabled() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("config.yaml")
+
+        let store = ConfigurationStore()
+        XCTAssertFalse(DeckSettings().webServerEnabled)
+        XCTAssertEqual(DeckSettings().webServerPort, 8420)
+
+        var configuration = DeckConfiguration()
+        configuration.settings.webServerEnabled = true
+        configuration.settings.webServerPort = 9123
+        try store.save(configuration, to: url)
+        let loaded = try store.load(from: url)
+        XCTAssertTrue(loaded.settings.webServerEnabled)
+        XCTAssertEqual(loaded.settings.webServerPort, 9123)
+    }
+
     func testImportsLegacyYAMLAndWritesTypedSchema() throws {
         let legacy = """
         settings:

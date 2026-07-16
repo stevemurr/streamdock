@@ -38,6 +38,8 @@ verified on macOS (Apple Silicon).
   Keychain; commands reference `$TOKEN`, configs stay clean.
 - **Runtime** — menu-bar app, launch-at-login, keep-alive, auto reconnect,
   idle screen-off, config hot-reload.
+- **Phone controls** — optional local-network web server with a responsive button
+  grid and page switching; no editor, configuration, or secrets are exposed.
 
 ## Quick start: build the native macOS app
 

@@ -30,6 +30,17 @@ middle = first page, right = next page**. A key configured at one of those
 positions in the YAML overrides the built-in binding; the editor grid only
 shows the 15 LCD keys.
 
+## Phone controls
+
+Open **Settings → Phone Controls**, enable the local web server, choose a port,
+and save the configuration. Open the displayed URL from a phone on
+the same Wi-Fi network. The responsive page mirrors the 15 deck buttons and
+page tabs; it does not expose the editor, configuration, or secrets.
+
+The server is disabled by default. It listens on the Mac's local network
+interfaces when enabled, and a web press has the same power as a physical key,
+including launching configured commands. Only enable it on a network you trust.
+
 ## Environment secrets
 
 Keys, commands, and scripts frequently need tokens (`HA_TOKEN`, `OPENAI_API_KEY`,
