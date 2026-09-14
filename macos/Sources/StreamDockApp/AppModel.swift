@@ -30,7 +30,11 @@ final class AppModel: ObservableObject {
     @Published var isDirty = false
     @Published var executionResult: ExecutionResult?
     @Published var executionError: String?
-    @Published var isExecuting = false
+    /// Keys with an execution in flight, whatever started it: the inspector's
+    /// test run, a hardware press, the control socket, or the web interface.
+    /// A repeat press of a key already in here is ignored, so the executor's
+    /// `alreadyRunning` error never reaches the UI as an alert.
+    @Published private(set) var runningKeyIDs: Set<UUID> = []
     @Published var deviceStatus = "Native device runtime starting"
     @Published var legacyAgentInstalled = FileManager.default.fileExists(
         atPath: NSString(string: "~/Library/LaunchAgents/com.streamdock.run.plist").expandingTildeInPath
@@ -232,9 +236,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    var isSelectedKeyRunning: Bool {
+        guard let id = selectedKey?.id else { return false }
+        return runningKeyIDs.contains(id)
+    }
+
     func runSelectedAction() {
-        guard let key = selectedKey else { return }
-        isExecuting = true
+        guard let key = selectedKey, !runningKeyIDs.contains(key.id) else { return }
+        runningKeyIDs.insert(key.id)
         executionError = nil
         executionResult = nil
         let context = KeyExecutionContext(
@@ -246,9 +255,9 @@ final class AppModel: ObservableObject {
             do {
                 executionResult = try await executor.execute(key.trigger, keyID: key.id, context: context)
             } catch {
-                executionError = error.localizedDescription
+                report(executionFailure: error)
             }
-            isExecuting = false
+            runningKeyIDs.remove(key.id)
         }
     }
 
@@ -262,12 +271,18 @@ final class AppModel: ObservableObject {
         configureEnvironmentFile()
     }
 
-    private func runHardwareAction(_ key: KeyConfiguration, pageName: String?, depth: Int) {
-        let behavior = key.trigger.executionOptions?.behavior ?? .runOnce
+    /// Runs a key press. Returns false when the press was ignored because the
+    /// key is still running and the action does not allow concurrent runs —
+    /// pressing a busy key is a no-op, not an error worth interrupting for.
+    @discardableResult
+    private func runHardwareAction(_ key: KeyConfiguration, pageName: String?, depth: Int) -> Bool {
+        let options = key.trigger.executionOptions
+        let behavior = options?.behavior ?? .runOnce
         if behavior != .runOnce, activeActions[key.id] != nil {
             stopActiveAction(key.id)
-            return
+            return true
         }
+        guard options?.allowConcurrent == true || !runningKeyIDs.contains(key.id) else { return false }
         let context = KeyExecutionContext(keyPosition: key.position, pageName: pageName, pressDepth: depth)
         if behavior != .runOnce {
             let duration = key.trigger.executionOptions?.durationSeconds ?? 3600
@@ -286,6 +301,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+        runningKeyIDs.insert(key.id)
         Task {
             do {
                 let result = try await executor.execute(key.trigger, keyID: key.id, context: context)
@@ -296,10 +312,19 @@ final class AppModel: ObservableObject {
                 }
             } catch {
                 let wasExpectedStop = stoppingManagedActions.remove(key.id) != nil
-                if !wasExpectedStop { executionError = error.localizedDescription }
+                if !wasExpectedStop { report(executionFailure: error) }
             }
+            runningKeyIDs.remove(key.id)
             if behavior != .runOnce { clearActiveAction(key.id) }
         }
+        return true
+    }
+
+    /// A press that lost the race with an identical one in flight is not a
+    /// failure the user needs to dismiss an alert for.
+    private func report(executionFailure error: Error) {
+        if let failure = error as? ActionExecutionError, case .alreadyRunning = failure { return }
+        executionError = error.localizedDescription
     }
 
     var sortedActiveActions: [ActiveActionStatus] {
@@ -478,8 +503,11 @@ final class AppModel: ObservableObject {
         case .launchApplication, .shellCommand, .inlineScript, .scriptFile, .caffeinate:
             // Same fire-and-forget path as a hardware press, but the chain
             // depth carries over from the requesting action.
-            runHardwareAction(match.key, pageName: match.page.name, depth: request.depth ?? 0)
-            return ControlResponse(ok: true, detail: "pressed \(name) on \(match.page.name)")
+            let pressed = runHardwareAction(match.key, pageName: match.page.name, depth: request.depth ?? 0)
+            return ControlResponse(
+                ok: true,
+                detail: pressed ? "pressed \(name) on \(match.page.name)" : "\(name) is still running"
+            )
         }
     }
 

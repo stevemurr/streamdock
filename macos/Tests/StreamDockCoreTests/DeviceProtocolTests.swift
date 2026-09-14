@@ -67,4 +67,18 @@ final class DeviceProtocolTests: XCTestCase {
             [11, 12, 13, 14, 15, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5]
         )
     }
+
+    func testHeartbeatIntervalIsClampedInsideFirmwareSafeRange() {
+        XCTAssertEqual(HeartbeatPolicy.normalizedInterval(-10), 0.5)
+        XCTAssertEqual(HeartbeatPolicy.normalizedInterval(1.25), 1.25)
+        XCTAssertEqual(HeartbeatPolicy.normalizedInterval(30), 2)
+        XCTAssertEqual(HeartbeatPolicy.normalizedInterval(.infinity), 1)
+    }
+
+    func testHeartbeatRequestsFullRecoveryAfterMissedFirmwareWindow() {
+        XCTAssertFalse(HeartbeatPolicy.requiresRecovery(elapsed: 2.9, interval: 2))
+        XCTAssertTrue(HeartbeatPolicy.requiresRecovery(elapsed: 3, interval: 2))
+        XCTAssertFalse(HeartbeatPolicy.requiresRecovery(elapsed: 1.9, interval: 1))
+        XCTAssertTrue(HeartbeatPolicy.requiresRecovery(elapsed: 2, interval: 1))
+    }
 }

@@ -88,12 +88,12 @@ private struct InspectorForm: View {
     private var executionPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button(model.isExecuting ? "Running…" : "Test Run", systemImage: "play.fill") {
+                Button(model.isSelectedKeyRunning ? "Running…" : "Test Run", systemImage: "play.fill") {
                     model.runSelectedAction()
                 }
                 .keyboardShortcut("r", modifiers: .command)
-                .disabled(model.isExecuting || !isExecutable)
-                if model.isExecuting {
+                .disabled(model.isSelectedKeyRunning || !isExecutable)
+                if model.isSelectedKeyRunning {
                     Button("Stop", systemImage: "stop.fill") { model.stopSelectedAction() }
                         .keyboardShortcut(".", modifiers: .command)
                 }
